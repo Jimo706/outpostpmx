@@ -1,0 +1,24 @@
+<svg width="1200" height="260" viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b3d91"></stop>
+      <stop offset="100%" stop-color="#051937"></stop>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="260" fill="url(#bg)"></rect>
+
+  <text x="60" y="110" font-family="Segoe UI, Arial" font-size="60" fill="white" font-weight="bold">
+        OutpostX
+  </text>
+
+  <text x="60" y="160" font-family="Segoe UI, Arial" font-size="28" fill="#b9d6ff">
+        Next-Generation Packet BBS Messaging Client
+  </text>
+
+  <text x="60" y="210" font-family="Segoe UI, Arial" font-size="20" fill="#9fbfff">
+        Serial • Telnet • AGWPE • Cross-Platform • Spec-Driven Protocol Engine
+  </text>
+
+</svg>

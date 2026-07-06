@@ -1,0 +1,38 @@
+{
+  "id": "kpc3",
+  "name": "Kantronics KPC-3 PBBS",
+  "version": 1,
+
+  "prompt": {
+    "pattern": "ENTER COMMAND:.*>",
+    "case_insensitive": true
+  },
+
+  "commands": {
+    "list_mine": "LM",
+    "read": "R {msgno}",
+    "kill": "K {msgno}",
+    "bye": "B"
+  },
+
+  "list_mine": {
+    "header_start_pattern": "^MSG#\\s+ST\\s+SIZE\\s+TO\\s+FROM\\s+DATE",
+    "entry_pattern": "^(?P<msgno>\\d+)\\s+(?P<status>\\S+)\\s+(?P<size>\\d+)\\s+(?P<to>\\S+)\\s+(?P<from>\\S+)\\s+(?P<date>\\d{2}/\\d{2}/(?:\\d{2}|\\d{4}))\\s+(?P<time>\\d{2}:\\d{2}:\\d{2})\\s+(?P<subject>.+)$",
+    "date_source": "list_row",
+    "date_format": "%m/%d/%Y %H:%M:%S"
+  },
+
+  "sent_at": {
+    "source": "msg_header",
+    "field": "sent_at",
+    "formats": ["ymd_hms_space", "mdy_4y_hms_slash", "mdy_2y_hms_slash"],
+    "assume_timezone": "local"
+  },
+
+  "read_message": {
+    "header_line_pattern": "^MSG#\\s*(?P<msgno>\\d+)\\s+(?P<date>\\d{2}/\\d{2}/(?:\\d{2}|\\d{4}))\\s+(?P<time>\\d{2}:\\d{2}:\\d{2})\\s+FROM\\s+(?P<from>\\S+)\\s+TO\\s+(?P<to>\\S+)",
+    "subject_pattern": "^SUBJECT:\\s*(?P<subject>.+)$",
+    "body_start_after_blank": true,
+    "datetime_format": "%m/%d/%Y %H:%M:%S"
+  }
+}

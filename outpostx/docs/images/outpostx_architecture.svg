@@ -1,0 +1,145 @@
+<svg width="1400" height="980" viewBox="0 0 1400 980" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">OutpostX Architecture Diagram</title>
+  <desc id="desc">Layered architecture diagram for OutpostX showing UI, session engine, adapters, transports, protocol specs, and SQLite database.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#eef4ff"/>
+    </linearGradient>
+
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0b3d91"/>
+      <stop offset="100%" stop-color="#245fca"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#24446d" flood-opacity="0.16"/>
+    </filter>
+
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#4a6488"/>
+    </marker>
+
+    <style>
+      .title { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #ffffff; }
+      .subtitle { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #dce8ff; }
+      .section { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #16345f; }
+      .label { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #17355d; }
+      .body { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #37506f; }
+      .small { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #48627f; }
+      .box { fill: #ffffff; stroke: #b7c9e6; stroke-width: 2; rx: 18; ry: 18; filter: url(#shadow); }
+      .boxBlue { fill: #f3f8ff; stroke: #8eb2ea; stroke-width: 2; rx: 18; ry: 18; filter: url(#shadow); }
+      .boxGreen { fill: #f2fbf8; stroke: #9bd3bf; stroke-width: 2; rx: 18; ry: 18; filter: url(#shadow); }
+      .boxGold { fill: #fffaf0; stroke: #e8c988; stroke-width: 2; rx: 18; ry: 18; filter: url(#shadow); }
+      .line { stroke: #4a6488; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .thin { stroke: #6e86a8; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .lane { fill: none; stroke: #d3deef; stroke-width: 2; stroke-dasharray: 10 8; rx: 20; ry: 20; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="980" fill="url(#bg)"/>
+
+  <rect x="40" y="30" width="1320" height="110" rx="26" ry="26" fill="url(#header)"/>
+  <text x="78" y="76" class="title">OutpostX Architecture</text>
+  <text x="78" y="110" class="subtitle">Cross-platform packet BBS messaging client with layered UI, session, transport, protocol, and data services</text>
+
+  <rect x="70" y="180" width="1260" height="130" class="lane"/>
+  <rect x="70" y="340" width="1260" height="175" class="lane"/>
+  <rect x="70" y="545" width="1260" height="200" class="lane"/>
+  <rect x="70" y="775" width="1260" height="150" class="lane"/>
+
+  <text x="88" y="208" class="section">Presentation Layer</text>
+  <text x="88" y="368" class="section">Session / Coordination Layer</text>
+  <text x="88" y="573" class="section">Transport and Protocol Layer</text>
+  <text x="88" y="803" class="section">Persistence / Configuration Layer</text>
+
+  <rect x="180" y="220" width="320" height="62" class="boxBlue"/>
+  <text x="340" y="248" text-anchor="middle" class="label">PyQt6 User Interface</text>
+  <text x="340" y="269" text-anchor="middle" class="small">dialogs • widgets • tables • setup screens</text>
+
+  <rect x="560" y="220" width="300" height="62" class="boxBlue"/>
+  <text x="710" y="248" text-anchor="middle" class="label">Send/Receive Session Dialog</text>
+  <text x="710" y="269" text-anchor="middle" class="small">operator workflow • progress • transcript</text>
+
+  <rect x="920" y="220" width="290" height="62" class="boxBlue"/>
+  <text x="1065" y="248" text-anchor="middle" class="label">Theme / App Chrome</text>
+  <text x="1065" y="269" text-anchor="middle" class="small">menus • toolbar • styling • layout</text>
+
+  <rect x="170" y="395" width="420" height="88" class="box"/>
+  <text x="380" y="425" text-anchor="middle" class="label">SendReceiveSession</text>
+  <text x="380" y="448" text-anchor="middle" class="body">snapshot → connect → login → send outbound</text>
+  <text x="380" y="469" text-anchor="middle" class="body">→ receive inbound → logout → cleanup</text>
+
+  <rect x="650" y="395" width="330" height="88" class="box"/>
+  <text x="815" y="425" text-anchor="middle" class="label">SessionSnapshot</text>
+  <text x="815" y="448" text-anchor="middle" class="body">active station • tactical • interface</text>
+  <text x="815" y="469" text-anchor="middle" class="body">BBS profile • credentials • settings</text>
+
+  <rect x="1040" y="395" width="220" height="88" class="boxGold"/>
+  <text x="1150" y="425" text-anchor="middle" class="label">Logging</text>
+  <text x="1150" y="448" text-anchor="middle" class="body">session log</text>
+  <text x="1150" y="469" text-anchor="middle" class="body">transcript log</text>
+
+  <rect x="110" y="600" width="290" height="95" class="boxGreen"/>
+  <text x="255" y="630" text-anchor="middle" class="label">SendReceiveAdapter</text>
+  <text x="255" y="653" text-anchor="middle" class="body">buffering • expect() • prompt detection</text>
+  <text x="255" y="674" text-anchor="middle" class="body">TX/RX transcript integration</text>
+
+  <rect x="450" y="585" width="250" height="56" class="box"/>
+  <text x="575" y="619" text-anchor="middle" class="label">SerialConnection</text>
+
+  <rect x="450" y="654" width="250" height="56" class="box"/>
+  <text x="575" y="688" text-anchor="middle" class="label">TcpConnection</text>
+
+  <rect x="450" y="723" width="250" height="56" class="box"/>
+  <text x="575" y="757" text-anchor="middle" class="label">AGWConnection</text>
+
+  <rect x="760" y="600" width="290" height="95" class="boxGreen"/>
+  <text x="905" y="630" text-anchor="middle" class="label">BBSProtocolAdapter</text>
+  <text x="905" y="653" text-anchor="middle" class="body">commands • prompt patterns • parsing</text>
+  <text x="905" y="674" text-anchor="middle" class="body">SID detection • message normalization</text>
+
+  <rect x="1100" y="600" width="180" height="95" class="boxGold"/>
+  <text x="1190" y="630" text-anchor="middle" class="label">JSON BBS Specs</text>
+  <text x="1190" y="653" text-anchor="middle" class="body">jnos_spec.json</text>
+  <text x="1190" y="674" text-anchor="middle" class="body">kpc3_spec.json</text>
+
+  <rect x="145" y="825" width="290" height="68" class="box"/>
+  <text x="290" y="853" text-anchor="middle" class="label">SystemConfigService</text>
+  <text x="290" y="874" text-anchor="middle" class="small">active station • interface • BBS • prefs</text>
+
+  <rect x="510" y="815" width="330" height="88" class="box"/>
+  <text x="675" y="845" text-anchor="middle" class="label">MessageRepository / Services</text>
+  <text x="675" y="868" text-anchor="middle" class="body">queued outbound • inbound upsert • dedupe</text>
+  <text x="675" y="889" text-anchor="middle" class="body">folder state • sent marking • retrieval</text>
+
+  <rect x="920" y="825" width="300" height="68" class="boxGold"/>
+  <text x="1070" y="853" text-anchor="middle" class="label">SQLite Database</text>
+  <text x="1070" y="874" text-anchor="middle" class="small">messages • config • credentials • state</text>
+
+  <path d="M 500 251 L 560 251" class="line"/>
+  <path d="M 860 251 L 920 251" class="thin"/>
+
+  <path d="M 710 282 L 710 395" class="line"/>
+  <path d="M 340 282 L 340 395" class="thin"/>
+  <path d="M 1065 282 L 1150 395" class="thin"/>
+
+  <path d="M 590 439 L 650 439" class="line"/>
+  <path d="M 380 483 L 255 600" class="line"/>
+  <path d="M 590 483 L 760 620" class="line"/>
+  <path d="M 980 439 L 1040 439" class="thin"/>
+
+  <path d="M 400 647 L 450 613" class="thin"/>
+  <path d="M 400 647 L 450 682" class="thin"/>
+  <path d="M 400 647 L 450 751" class="thin"/>
+
+  <path d="M 1050 647 L 1100 647" class="line"/>
+
+  <path d="M 255 695 L 255 825" class="line"/>
+  <path d="M 905 695 L 675 815" class="line"/>
+  <path d="M 435 859 L 510 859" class="line"/>
+  <path d="M 840 859 L 920 859" class="line"/>
+
+  <text x="78" y="950" class="small">Suggested use: README overview image, docs/index.md landing page, and docs/architecture.md detailed architecture section.</text>
+</svg>

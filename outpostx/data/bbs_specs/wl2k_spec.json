@@ -1,0 +1,51 @@
+{
+  "id": "wl2k",
+  "name": "Winlink CMS",
+  "version": 1,
+  "description": "Winlink CMS over Telnet or RF gateway session",
+
+  "prompt": {
+    "pattern": "CMS>\\s*$",
+    "case_insensitive": true
+  },
+
+  "commands": {
+    "list_mine": "LM",
+    "read": "R {msgno}",
+    "kill": "K {msgno}",
+    "bye": "B"
+  },
+
+  "list_mine": {
+    "trigger_command": "LM",
+    "entry_pattern": "^(?P<msgno>[A-Z0-9]{8,16})\\s+(?P<date>\\d{4}/\\d{2}/\\d{2})\\s+(?P<time>\\d{2}:\\d{2})\\s+(?P<size>\\d+)\\s+(?P<from>\\S+)\\s+(?P<subject>.+)$",
+    "date_source": "list_row"
+  },
+
+  "sent_at": {
+    "source": "msg_header",
+    "extract": [
+      { "label": "Date", "regex": "^Date:\\s*(.+)$", "group": 1 }
+    ],
+    "formats": ["ymd_hm_slash", "ymd_hms_slash", "ymd_hm_space", "ymd_hms_space"],
+    "assume_timezone": "local"
+  },
+
+  "read_message": {
+    "header_patterns": {
+      "subject": "^Subject:\\s*(?P<subject>.+)$",
+      "bbsmsgno": "^Message ID:\\s*(?P<bbsmsgno>\\S+)$",
+      "date": "^Date:\\s*(?P<date>.+)$",
+      "from": "^From:\\s*(?P<from>.+)$",
+      "to": "^To:\\s*(?P<to>.+)$",
+      "cc": "^Cc:\\s*(?P<cc>.+)$",
+      "source": "^Source:\\s*(?P<source>.+)$",
+      "cms_site": "^CMS Site:\\s*(?P<cms_site>.+)$"
+    },
+    "date_parse": {
+      "pattern": "^(?P<year>\\d{4})/(?P<month>\\d{2})/(?P<day>\\d{2})\\s+(?P<hour>\\d{2}):(?P<minute>\\d{2})(?::(?P<second>\\d{2}))?$",
+      "to_iso": "%Y-%m-%d %H:%M:%S"
+    },
+    "body_start_after_blank": true
+  }
+}

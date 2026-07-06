@@ -1,0 +1,49 @@
+{
+  "id": "jnos",
+  "name": "JNOS 2.x",
+  "version": 1,
+  "description": "JNOS 2.x style BBS on SCC mesh",
+
+  "prompt": {
+    "pattern": "\\)\\s*>\\s*$",
+    "case_insensitive": true
+  },
+
+  "commands": {
+    "list_mine": "LM",
+    "read": "R {msgno}",
+    "kill": "K {msgno}",
+    "bye": "B"
+  },
+
+  "list_mine": {
+    "trigger_command": "LM",
+    "header_start_pattern": "^St\\.",
+    "entry_pattern": "^\\s*>?\\s*(?P<new>[NY])\\s+(?P<msgno>\\d+)\\s+(?P<to>\\S+)\\s+(?P<from>\\S+)\\s+(?P<month>[A-Za-z]{3})\\s+(?P<day>\\d{1,2})\\s+(?P<size>\\d+)\\s+(?P<subject>.+)$",
+    "date_source": "read_header"
+  },
+
+  "sent_at": {
+    "source": "msg_header",
+    "extract": [
+      { "label": "Date", "regex": "^Date:\\s*(.+)$", "group": 1 }
+    ],
+    "formats": ["rfc2822"],
+    "assume_timezone": "local"
+  },
+    
+  "read_message": {
+    "header_patterns": {
+      "date": "^Date:\\s*(?P<date>.+)$",
+      "from": "^From:\\s*(?P<from>.+)$",
+      "to": "^To:\\s*(?P<to>.+)$",
+      "cc": "^Cc:\\s*(?P<cc>.+)$",
+      "subject": "^Subject:\\s*(?P<subject>.+)$"
+    },
+    "date_parse": {
+      "pattern": "^[A-Za-z]{3},\\s+(?P<day>\\d{1,2})\\s+(?P<month>[A-Za-z]{3})\\s+(?P<year>\\d{4})\\s+(?P<hour>\\d{2}):(?P<minute>\\d{2}):(?P<second>\\d{2})",
+      "to_iso": "%Y-%m-%d %H:%M:%S"
+    },
+    "body_start_after_blank": true
+  }
+}

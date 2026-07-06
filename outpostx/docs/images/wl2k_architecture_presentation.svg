@@ -1,0 +1,197 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">WL2K Architecture in OutpostX</title>
+  <desc id="desc">Presentation-ready architecture diagram showing UI, session engine, transport, protocol, and data/persistence layers for Winlink CMS integration in OutpostX.</desc>
+
+  <defs>
+    <linearGradient id="bgGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fbfcff"/>
+      <stop offset="100%" stop-color="#f4f7fb"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6472"/>
+    </marker>
+
+    <style>
+      .title { font: 700 30px 'Segoe UI', Arial, sans-serif; fill: #1f2a37; }
+      .subtitle { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #5b6472; }
+      .lane-label { font: 700 14px 'Segoe UI', Arial, sans-serif; fill: #344054; letter-spacing: .6px; }
+      .box-title { font: 700 16px 'Segoe UI', Arial, sans-serif; fill: #18212f; }
+      .box-text { font: 400 13px 'Segoe UI', Arial, sans-serif; fill: #475467; }
+      .tiny { font: 400 12px 'Segoe UI', Arial, sans-serif; fill: #667085; }
+      .group { fill: #ffffff; stroke: #d7dce5; stroke-width: 1.2; rx: 22; filter: url(#shadow); }
+      .box { stroke: #334155; stroke-opacity: .12; stroke-width: 1.2; rx: 18; filter: url(#shadow); }
+      .transport { fill: #e9f3ff; }
+      .protocol { fill: #eef9f1; }
+      .data { fill: #fff5e8; }
+      .engine { fill: #f3edff; }
+      .ui { fill: #fdf2f8; }
+      .remote { fill: #eef2f6; }
+      .edge { stroke: #5b6472; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+      .edge-soft { stroke: #98a2b3; stroke-width: 1.8; fill: none; marker-end: url(#arrow); stroke-dasharray: 7 7; }
+      .legend-box { fill: #fff; stroke: #d7dce5; stroke-width: 1; rx: 14; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="900" fill="url(#bgGrad)"/>
+
+  <!-- Header -->
+  <text x="70" y="68" class="title">WL2K Architecture in OutpostX</text>
+  <text x="70" y="96" class="subtitle">Winlink CMS integration mapped to the actual OutpostX session engine, adapter, spec, and persistence flow</text>
+
+  <!-- Legend -->
+  <g transform="translate(1040,42)">
+    <rect width="290" height="110" class="legend-box"/>
+    <text x="18" y="28" class="lane-label">COLOR KEY</text>
+    <rect x="18" y="42" width="18" height="18" rx="5" class="box ui"/>
+    <text x="46" y="56" class="tiny">UI / orchestration entry</text>
+    <rect x="18" y="68" width="18" height="18" rx="5" class="box engine"/>
+    <text x="46" y="82" class="tiny">Session engine / control flow</text>
+    <rect x="150" y="42" width="18" height="18" rx="5" class="box transport"/>
+    <text x="178" y="56" class="tiny">Transport / adapter layer</text>
+    <rect x="150" y="68" width="18" height="18" rx="5" class="box protocol"/>
+    <text x="178" y="82" class="tiny">Protocol / spec layer</text>
+    <rect x="18" y="90" width="18" height="18" rx="5" class="box data"/>
+    <text x="46" y="104" class="tiny">Data / persistence</text>
+  </g>
+
+  <!-- Lanes -->
+  <text x="70" y="165" class="lane-label">1. UI + SESSION CONTROL</text>
+  <text x="70" y="360" class="lane-label">2. TRANSPORT + REMOTE EXCHANGE</text>
+  <text x="70" y="560" class="lane-label">3. PROTOCOL + SPEC BINDING</text>
+  <text x="70" y="785" class="lane-label">4. PARSING + PERSISTENCE</text>
+
+  <!-- Groups -->
+  <rect x="55" y="178" width="1290" height="145" class="group"/>
+  <rect x="55" y="373" width="1290" height="145" class="group"/>
+  <rect x="55" y="573" width="1290" height="170" class="group"/>
+  <rect x="55" y="798" width="1290" height="70" class="group"/>
+
+  <!-- Row 1 -->
+  <g>
+    <rect x="90" y="214" width="240" height="74" class="box ui"/>
+    <text x="112" y="242" class="box-title">SendReceiveSessionDialog</text>
+    <text x="112" y="264" class="box-text">Manual Send/Receive launched by operator</text>
+
+    <rect x="390" y="214" width="285" height="74" class="box engine"/>
+    <text x="412" y="242" class="box-title">SendReceiveSession</text>
+    <text x="412" y="264" class="box-text">run() orchestrates connect → login → send → receive</text>
+
+    <rect x="735" y="214" width="255" height="74" class="box engine"/>
+    <text x="757" y="242" class="box-title">SessionSnapshot</text>
+    <text x="757" y="264" class="box-text">station • tactical • interface • BBS • logon</text>
+
+    <rect x="1050" y="214" width="250" height="74" class="box data"/>
+    <text x="1072" y="242" class="box-title">SystemConfigService</text>
+    <text x="1072" y="264" class="box-text">Active station / interface / BBS / credentials</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g>
+    <rect x="90" y="409" width="240" height="74" class="box transport"/>
+    <text x="112" y="437" class="box-title">get_connection(...)</text>
+    <text x="112" y="459" class="box-text">Selects tcp / serial / agwpe transport</text>
+
+    <rect x="390" y="409" width="255" height="74" class="box transport"/>
+    <text x="412" y="437" class="box-title">TCP Connection</text>
+    <text x="412" y="459" class="box-text">TELNET path used for WL2K CMS</text>
+
+    <rect x="705" y="409" width="285" height="74" class="box transport"/>
+    <text x="727" y="437" class="box-title">SendReceiveAdapter</text>
+    <text x="727" y="459" class="box-text">send_line() • expect() • expect_any_match()</text>
+
+    <rect x="1050" y="399" width="250" height="94" class="box remote"/>
+    <text x="1072" y="427" class="box-title">Winlink CMS / RMS</text>
+    <text x="1072" y="449" class="box-text">Callsign:</text>
+    <text x="1072" y="467" class="box-text">Password:</text>
+    <text x="1072" y="485" class="box-text">[WL2K-...] ;PQ: ... CMS></text>
+  </g>
+
+  <!-- Row 3 -->
+  <g>
+    <rect x="90" y="610" width="260" height="84" class="box protocol"/>
+    <text x="112" y="638" class="box-title">services/wl2k_secure_login.py</text>
+    <text x="112" y="660" class="box-text">Extract ;PQ • compute ;PR • build SID</text>
+
+    <rect x="400" y="610" width="230" height="84" class="box protocol"/>
+    <text x="422" y="638" class="box-title">parse_sid(...)</text>
+    <text x="422" y="660" class="box-text">Detects WL2K SID from banner text</text>
+
+    <rect x="680" y="610" width="230" height="84" class="box protocol"/>
+    <text x="702" y="638" class="box-title">BBSSpecLoader</text>
+    <text x="702" y="660" class="box-text">Maps SID type → spec definition</text>
+
+    <rect x="960" y="610" width="180" height="84" class="box protocol"/>
+    <text x="982" y="638" class="box-title">wl2k_spec.json</text>
+    <text x="982" y="660" class="box-text">prompt • LM • R • K • B</text>
+
+    <rect x="1190" y="610" width="110" height="84" class="box protocol"/>
+    <text x="1212" y="638" class="box-title">BBS</text>
+    <text x="1204" y="660" class="box-text">ProtocolAdapter</text>
+  </g>
+
+  <g>
+    <rect x="400" y="706" width="230" height="24" class="box protocol"/>
+    <text x="418" y="723" class="tiny">Other specs: jnos_spec.json • kpc3_spec.json</text>
+  </g>
+
+  <!-- Row 4 -->
+  <g>
+    <rect x="90" y="812" width="300" height="42" class="box engine"/>
+    <text x="112" y="838" class="box-title">Listing / message parsing</text>
+    <text x="290" y="838" class="box-text">LM rows • R &lt;msgid&gt; • prompt stripping</text>
+
+    <rect x="445" y="812" width="310" height="42" class="box engine"/>
+    <text x="467" y="838" class="box-title">Normalize / dedupe / backfill sent_at</text>
+    <text x="680" y="838" class="box-text">WL2K-specific cleanup</text>
+
+    <rect x="810" y="812" width="245" height="42" class="box data"/>
+    <text x="832" y="838" class="box-title">MessageRepository / SqliteMessageService</text>
+
+    <rect x="1110" y="812" width="190" height="42" class="box data"/>
+    <text x="1132" y="838" class="box-title">outpostx.db</text>
+    <text x="1210" y="838" class="box-text">messages + bodies</text>
+  </g>
+
+  <!-- Arrows main -->
+  <path d="M330 251 H390" class="edge"/>
+  <path d="M675 251 H735" class="edge"/>
+  <path d="M990 251 H1050" class="edge-soft"/>
+
+  <path d="M510 288 V374" class="edge"/>
+  <path d="M330 446 H390" class="edge"/>
+  <path d="M645 446 H705" class="edge"/>
+  <path d="M990 446 H1050" class="edge"/>
+  <path d="M1050 430 H990" class="edge-soft"/>
+
+  <path d="M848 483 V573" class="edge"/>
+  <path d="M350 652 H400" class="edge"/>
+  <path d="M630 652 H680" class="edge"/>
+  <path d="M910 652 H960" class="edge"/>
+  <path d="M1140 652 H1190" class="edge"/>
+
+  <path d="M1245 694 V742 H240 V798" class="edge"/>
+  <path d="M390 833 H445" class="edge"/>
+  <path d="M755 833 H810" class="edge"/>
+  <path d="M1055 833 H1110" class="edge"/>
+
+  <!-- Cross-links -->
+  <path d="M540 214 V184 H220 V214" class="edge-soft"/>
+  <text x="282" y="176" class="tiny">operator starts session</text>
+
+  <path d="M520 610 V520 H848 V483" class="edge-soft"/>
+  <text x="610" y="512" class="tiny">WL2K login branch inside _login_bbs_via_telnet()</text>
+
+  <path d="M1130 610 V540 H1180 V493" class="edge-soft"/>
+  <text x="1035" y="534" class="tiny">remote prompt and listing format drive spec</text>
+
+  <!-- Footer callouts -->
+  <g transform="translate(78,872)">
+    <text class="tiny" x="0" y="0">Exact module names reflected here: SendReceiveSession, SendReceiveAdapter, wl2k_secure_login.py, BBSSpecLoader, wl2k_spec.json, MessageRepository, SqliteMessageService.</text>
+  </g>
+</svg>

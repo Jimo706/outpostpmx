@@ -1,7 +1,3 @@
-<p align="left">
-<img src="images/outpostx_banner.svg" width="900">
-</p>
-
 # OutpostX Suite
 
 *A cross-platform communications suite for Amateur Radio Packet

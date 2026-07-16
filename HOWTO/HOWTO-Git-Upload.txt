@@ -1,0 +1,13 @@
+HOWTO Upload to Git
+------------------------------
+04/12/2026
+
+
+1. Run git BASH
+	This will run MINGW64 and a bash shell
+2. Look at current config
+	$ git config --global user.name
+	Jim Oberhofer
+	$ git config --global user.email
+	kn6pe706@gmail.com
+3. $

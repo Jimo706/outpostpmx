@@ -1,0 +1,111 @@
+Get Setup on Windows
+-------------------------
+260412, Jim o
+
+-------------------------
+
+1. Open PowerShell or CMD and run
+	git --version
+    	  Confirm: git version 2.51.0.windows.2
+    
+	If you get “not recognized”, install Git:
+	https://git-scm.com/download/win
+
+2. Confirm the directory is NOT already a Git repo
+   move to the program directory
+	cd C:\Dev\OutpostX
+	git status
+   	  Confirm: fatal: not a git repository
+
+3. Confirm there is no existing hidden .git folder
+	dir /a
+	look for '.git'  Delete it if it is there
+
+4. Create the Git repository
+	cd C:\Dev\OutpostX
+   	  Confirm:  Initialized empty Git repository
+
+	git status
+	  Confirm:  On branch master
+		    No commits yet
+
+5. Create a .gitignore
+	mkdir C:\Dev\OutpostX\.gitignore
+	<see examples>
+
+6. Create a minimal README.md file
+	--------------------------
+	# OutpostX
+
+	OutpostX is the next-generation version of Outpost Packet Message Manager.
+
+	Features:
+	- Packet BBS messaging
+	- Serial, Telnet, and AGWPE interfaces
+	- Cross-platform (Windows, Linux, macOS)
+	- PyQt6 GUI
+
+	Author: Jim Oberhofer
+	--------------------------
+   
+7. Check what Git sees
+	git status
+	  Confirm:  You should see a list of your directories, 
+	  NOT 'venv' because .gitignore blocks it.
+
+8. Stage files for first commit
+	git add .
+	git status
+	  Confirm:  Changes to be committed:
+		    new file: README.md
+		    new file: services/send_receive_session.py
+		    new file: transports/agw_connection.py
+		     :
+
+9. Make the first commit
+	git commit -m "Initial OutpostX code baseline"
+  	  Verify:  git log
+	  Confirm:  (venv) C:\Dev\OutpostX>git log
+		    commit 482e2a882ff22b0ac5566250c703da209e3a65a7 (HEAD -> main)
+		    Author: Jim Oberhofer <kn6pe706@gmail.com>
+		    Date:   Sun Apr 12 16:45:44 2026 -0700
+
+		    Initial OutpostX code baseline
+
+10. Create the GitHub repository
+	goto https://github.com, create a repository: 'OutpostX'
+	DO NOT CHECK: 	Add README
+			Add .gitignore
+
+	After creation GitHub will show something like:
+	  https://github.com/Jimo706/OutpostX 
+
+11. Connect local repo to GitHub
+	(venv) C:\Dev\OutpostX>git remote add origin https://github.com/Jimo706/OutpostX.git
+
+	Verify: (venv) C:\Dev\OutpostX>git remote -v
+		origin  https://github.com/Jimo706/OutpostX.git (fetch)
+		origin  https://github.com/Jimo706/OutpostX.git (push)
+
+12. Push to GitHub
+	(venv) C:\Dev\OutpostX>git branch -M main
+    and... Push...
+	(venv) C:\Dev\OutpostX>git push -u origin main
+	Enumerating objects: 81, done.
+	Counting objects: 100% (81/81), done.
+	Delta compression using up to 28 threads
+	Compressing objects: 100% (77/77), done.
+	Writing objects: 100% (81/81), 192.11 KiB | 5.82 MiB/s, done.
+	Total 81 (delta 4), reused 0 (delta 0), pack-reused 0 (from 0)
+	remote: Resolving deltas: 100% (4/4), done.
+	To https://github.com/Jimo706/OutpostX.git
+	 * [new branch]      main -> main
+	branch 'main' set up to track 'origin/main'.
+
+13. Confirm success
+	(venv) C:\Dev\OutpostX>git status
+	On branch main
+	Your branch is up to date with 'origin/main'.
+
+	nothing to commit, working tree clean
+

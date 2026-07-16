@@ -1,0 +1,18 @@
+SET UP PYTHON ENVIRONMENT
+1. Confirm Python version is 3.10 or 3.11
+2. Check if brew is installed:	brew --version
+2a. In not installed, Install brew
+	1. Open Terminal: Find it via Spotlight search (Cmd + Space) or in Applications -> Utilities.
+
+	2. Run Install Command: Copy and paste the following command into Terminal:
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+	3. Confirm Password: Enter your Mac user password when prompted (it will not show while typing).
+
+	4. Complete Installation: Press RETURN to continue when prompted.
+
+	5. Add to PATH (If Needed): If the installer notifies you that brew is not in your PATH, follow the "Next steps" instructions in the terminal to add it to your profile, usually by running:
+
+    	echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+	eval "$(/opt/homebrew/bin/brew shellenv)". 
+

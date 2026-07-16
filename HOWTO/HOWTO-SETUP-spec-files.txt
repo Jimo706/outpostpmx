@@ -1,0 +1,42 @@
+HOTO-SETUP-Spec-File
+260529
+----------------------------------------
+
+------
+1. Create the spec file
+pyinstaller -y --clean optermx.py
+	-y		Replace output dir (default: SPECPATH/dist/SPECNAME) w/o confirmation
+	- clean		Clean PyInstaller cache and remove temporary files before building
+	optermx.py	script entry point
+
+------
+2. in optermx.spec, 
+ADD 
+added_files = [
+         ('Opx.conf', '.'), 
+         ('polar3232.ico', '.')
+         ]
+
+under analysis...	
+    datas=added_files,
+
+------
+3. Add icon to executable
+ADD under exe = ...
+    icon='polar3232.ico',
+NOTE:  If Icon does not show up on executable, Restart Explorer: Press Ctrl + Shift + Esc to open Task Manager, find Windows Explorer, right-click it, and select Restart to clear your computer's icon cache.
+
+CHANGE under exe = ...
+    console=False,
+
+------
+4. Move Opx.conf from _internals to program root dir
+After 'coll = COLLECT(' ADD these lines...
+# Assuming your output dist folder name is 'your_program'
+dist_dir = os.path.join('dist', 'optermx')
+src_conf = 'Opx.conf'
+
+# This guarantees the file exists in the executable's root folder after the build
+if os.path.exists(src_conf) and os.path.exists(dist_dir):
+    shutil.copy(src_conf, dist_dir)
+

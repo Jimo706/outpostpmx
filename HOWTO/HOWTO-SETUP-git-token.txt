@@ -1,0 +1,19 @@
+HOWTO setup a git token
+------------------------------
+10/7/2025
+Needed for Dell Linux access
+
+1. Log on to GitHub.com
+2. click on the image, upper right.  Select Settings
+3. In Settings, scroll down, to the bottom, select <> Developer Settings
+4. In Developer Settings, select Personal access tokens
+5. Select Tokens (classic)
+6. Select Generate new token (classic)
+7. In form, 
+      Enter Note: "Linux git access"
+      Expiration: (pick a time period)
+      Scope  [x] repo  (ONLY)
+   Press Generate token
+8. When presented, copy and save it to a file.
+9. on Linux, use the token in place of the password.
+

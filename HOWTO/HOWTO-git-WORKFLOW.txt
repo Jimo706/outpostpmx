@@ -1,0 +1,101 @@
+Get Setup on Windows
+-------------------------
+260414, Jim o
+
+-------------------------
+repeatable workflow
+
+- make changes locally
+- review what changed
+- commit with a clear message
+- push to GitHub
+
+0. Get to the dev directory
+cd C:\Dev\OutpostX
+
+1. See what changed
+	git status
+
+   tells you:	which files changed
+		which files are new
+		which files are staged or unstaged
+
+2. Review exactly what changed
+     For all unstaged changes:
+	git diff    (press 'q' to exit)
+     For one file:
+	git diff README.md
+
+3. Stage the files you want to include
+     If you want to stage everything changed:
+	git add .
+     If you want to stage only the docs and README:
+	git add README.md docs
+
+4. Check what is staged	
+	git status
+
+4.1 Review Staged content
+	git diff --cached
+
+5. Commit
+   Good commit messages are short and specific.
+	git commit -m "Add project documentation and docs index"
+   For multiple or large messages, 
+	git commit
+   editor opens, paste in text, press SAVE, CLOSE
+   Verify:  
+	git log -1     (that's a #1)
+
+6. Tag the push (optional)
+	git tag 26.04.0-beta
+
+7. Push to GitHub
+	git push
+
+8. After commit and push
+	git status
+     Verify: 	On branch main
+		Your branch is up to date with 'origin/main'.
+		nothing to commit, working tree clean
+
+9. Compact history view
+	git log --oneline
+
+-------------------
+10. Recommended solo workflow for bigger code changes
+      For small doc updates, working directly on main is fine.
+      For bigger or riskier work, use a short-lived branch.
+	git checkout -b agwpe-cleanup
+
+      Do your work, commit it, then merge it back later.
+
+11. Helpful command to view history
+	git log --oneline
+
+12. recommended simplest process
+	git status
+	git diff
+	git add <files or folders>
+	git commit -m "Clear message"
+	git push
+
+    For DOC work
+	git status
+	git add README.md docs
+	git commit -m "Add README and project documentation"
+	git push
+	
+-------------------
+MADE A MISTAKE
+-------------------
+1. If you changed a file by mistake
+   If you edited a file but want to discard the unstaged changes:
+   *** Be careful: this throws away local edits for that file.
+	git restore <filename>
+
+2. If you staged the wrong file
+	git restore --staged <filename>
+	git restore --staged docs/index.md
+
+

@@ -1,0 +1,129 @@
+HOWTO-BUILD-Windows.txt
+6 July 2026
+-------------------------------------
+
+There are several steps in creating the outpostpmx executable.
+
+1. Create (Pack) the Outpost Source
+2. Unpack Outpost Source
+3. Build the Virtual Environment
+4. Build the executable file
+5. Digitally sign the windows executable
+6. Package the windows program distributable
+
+--------------------------
+1. Create (Pack) the Outpost Source on dev't
+--------------------------
+This step is common for windows, Linux, and macOS.
+
+1. Verify the program is complete and works on the development system
+
+2. Find or create the he file 'create_outpostpmx_src_7zip.bat'
+
+3. cd /dev
+
+4. From File manager, double-click on the file 'create_outpostpmx_src_7zip.bat' 
+
+5. Verify that these files were created
+	outpostpmx_archive.zip
+	outpostpmx_archive.log
+   As of 13 June 2026, the outpost_archive.zip has 111 files, 12 folders.
+
+
+--------------------------
+2. Unpack Outpost Source on Windows
+--------------------------
+1. # maintains the original folder structure
+   cd dev
+   $ mkdir outpostpmx
+   $ cd dev/outpostpmx
+
+2. Copy the outpostpmx_src_archive.zip to the dev/outpostpmx directory
+
+3. Run to unpack the source code.
+   $ 7z x outpostpmx_archive.zip	
+
+
+--------------------------
+3. Build the Virtual Environment (venv)
+--------------------------
+1. create the venv environment
+	> cd \dev\outpostpmx
+	> python3 -m venv ./venv
+
+2. Activate the environment
+	> venv/bin/activate
+	(venv)>
+   or
+	FYI... To deactivate a virtual environment
+	(venv)> deactivate
+
+3. Install or upgrade Pip.
+	(venv)> python -m pip install --upgrade pip
+	pip 26.1.2 from C:\dev\optermx\venv\lib\site-packages\pip (python 3.10)
+
+4. Add the pyside6 tools
+	(venv)> pip install pyside6
+
+5. Install pyserial… 
+	(venv)> pip install pyserial
+
+6. Install paramiko..
+	(venv)> pip install paramiko
+
+7. Install pyinstaller..
+	(venv)> pip install pyinstaller
+
+8. Test:
+	(venv)> python --version		returns: 3.10.3
+	(venv)> pip --version			returns: 26.1.2
+	(venv)> pyinstaller --version		returns: 6.21.0
+	(venv)> python outpostx.py
+    if any fail, fix	
+
+9. Build the venv requirements file
+	(venv)> pip freeze > requirements_win.txt
+
+
+--------------------------
+4. Build the Executable file -- windows
+--------------------------
+
+1. Activate the virtual environment
+	cd: \dev\outpostpmx
+	venv\Scripts\activate
+
+2. Build the executable
+NOTE: Make sure you are in the same directory as 'outpostpmx_windows.spec'
+
+	python -m PyInstaller -y --clean outpostpmx_windows.spec
+		557 INFO: PyInstaller: 6.16.0, contrib hooks: 2025.9
+		557 INFO: Python: 3.10.3
+		581 INFO: Platform: Windows-10-10.0.26200-SP0
+		582 INFO: Python environment: C:\Dev\outpostpmx\venv
+				:
+
+--------------------------
+5. Digitally sign the program
+--------------------------
+NOTE: This assumes you have a tool to digitally sign Opx executables.  If not, then skip this step.
+
+--------------------------
+6. Package the windows program distributable
+--------------------------
+1. Move to \dev\tools directory	
+	(venv)> cd \dev\tools
+	verify presence of "create_outpostpmx_exe_7zip.bat"
+
+2. double-click on "create_outpostpmx_exe_7zip.bat"
+	Creating archive: C:\dev\outpostpm\dist\outpostpmx-windows-x86_64.zip
+	Add new data to archive: 30 folders, 255 files, 211846837 bytes (203 MiB)
+
+	Files read from disk: 255
+	Archive size: 122618547 bytes (117 MiB)
+	Everything is Ok
+
+3. Verify
+	cd \dev\outpostpmx\dist
+	verify presence of "outpostpmx-windows-x86_64.zip"
+

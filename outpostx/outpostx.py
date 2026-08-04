@@ -134,11 +134,15 @@ class EditorProfilesAdapter:
 
         return names
 
+
     def list_bbs_calls(self) -> list[str]:
         """
-        260609: !!!NOTACCESSED: does not look like it is called by anyone any more.
-        Retrieve the list of BBS call signs for BBS connections
+        Return configured operational BBS calls for the Message Form.
+
+        The active BBS is placed first so a newly composed message defaults
+        to the BBS active at the time the form is created.
         """
+
         profiles = self._bbs_repo.list_profiles()
         # print(f">>>DEBUG EditorProfilesAdaptor.list_bbs_calls.profiles = {profiles}")
         raw_calls: list[str] = []
@@ -156,9 +160,9 @@ class EditorProfilesAdapter:
         if not raw_calls:
             return ["(Unassigned)"]
 
-        # Determine active BBS call from SystemConfigService snapshot, if any
-        sel = self._system_config.get_active_selection()
-        active_call = (sel.bbs_call or "").strip() if sel.bbs_call else ""
+        # Use the same operational BBS call used for outbound-message routing.
+        # This normally means connect_call, with bbs_call as a fallback.
+        active_call = self.get_active_bbs_call()
 
         if active_call and active_call in raw_calls:
             # Build the list of BBS calls with the Active BBS goes first
@@ -168,6 +172,24 @@ class EditorProfilesAdapter:
             calls = [""] + raw_calls
 
         return calls
+
+    def get_active_bbs_call(self) -> str:
+        """
+        x139, 8/3/2026
+        Return the operational call for the active BBS.
+
+        Prefer connect_call because that is the value stored in outbound
+        messages and used by Send/Receive to determine BBS eligibility.
+        Fall back to bbs_call when connect_call is empty.
+        """
+        active_bbs = self._system_config.get_active_bbs()
+        if active_bbs is None:
+            return ""
+
+        return (
+            (getattr(active_bbs, "connect_call", "") or "").strip()
+            or (getattr(active_bbs, "bbs_call", "") or "").strip()
+        )
 
 
 class EditorAppSettings:

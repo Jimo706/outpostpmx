@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 #
-# outpostpmx_suite_linux.spec
+# outpostpmx_linux.spec
 #
 # Build with:
 #   cd ~/dev/outpostpmx

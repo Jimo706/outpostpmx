@@ -209,7 +209,7 @@ Create the Windows release archive.
 Example:
 
 ```cmd
-7z a release\outpostpmx-suite-windows-x86_64.zip dist\outpostpmx\
+7z a release\outpostpmx-windows-x86_64.zip dist\outpostpmx\
 ```
 
 Verify:

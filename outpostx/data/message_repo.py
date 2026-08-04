@@ -534,9 +534,9 @@ class MessageRepository:
             c.commit()
             return cur.rowcount > 0
 
-
+    
     # ----------------------------
-    #  260303
+    #  250801 x138
     #  DEDUPE Consolidated Code Block
     # ----------------------------
     def inbound_exists_for_dedupe(
@@ -545,80 +545,146 @@ class MessageRepository:
         bbs_id: str,
         bbs_call: str,
         bbsmsgno: str,
-        lm_row: Optional[Any] = None,
+        lm_row: Optional[dict] = None,
         area_hint: str = "",
-    ) -> bool:      # future:   -> tuple[bool, str]
+    ) -> bool:
         """
-        Unified inbound dedupe check.
+        Unified inbound duplicate check.
 
-        For JNOS, uses the listing fingerprint strategy (stable across LM + custom bulletin retrievals).
-        For non-JNOS BBSs, uses the inbound locator strategy: (bbs_call, bbsmsgno).
+        JNOS uses a listing fingerprint because JNOS message numbers are
+        positional and the same bulletin may be mirrored on multiple BBSs.
 
-        Args:
-            bbs_id: BBS spec identifier (e.g., "jnos", "kpc3", "bpq", etc.)
-            bbs_call: Remote BBS callsign (or BBS identifier used as locator prefix).
-            bbsmsgno: Message number/identifier as surfaced by the BBS listing.
-            lm_row: For JNOS, the parsed listing row (fields used to compute fingerprint).
-            area_hint: For JNOS, area name to include in fingerprint computation.
+        Other BBS types use the stable remote locator:
+            bbs_call + bbsmsgno
 
-        Returns:
-            True if an inbound message already exists (dedupe hit), else False.
-        ### 
+        The resulting path is:    
+        SendReceiveSession._retrieve_one_message()
+                    |
+                    v
+        MessageRepository.inbound_exists_for_dedupe()
+                    |
+                    +-- JNOS
+                    |      |
+                    |      v
+                    |  DAO cross-BBS comparison:
+                    |      month/day
+                    |      sender local-part
+                    |      subject
+                    |      message length
+                    |
+                    +-- Other BBS types
+                        |
+                        v
+                    bbs_call + bbsmsgno
 
-        ### 
-        if (bbs_id or "").lower() == "jnos":
-            # JNOS dedupe is independent of retrieval mode (LM vs custom bulletin retrieval).
-            if lm_row is None:
-                # Safe fallback: if we have no lm_row, we cannot compute a fingerprint reliably.
-                # Treat as "not found" so we don't accidentally skip messages.
+        """
+        if (bbs_id or "").strip().lower() == "jnos":
+            if not bbsmsgno:
+                # Cannot safely identify this JNOS listing entry.
                 return False
 
-            return self.inbound_exists_jnos_listing_fingerprint(
-                bbs_call=bbs_call,
-                lm_row=lm_row,
-                area_hint=area_hint,
+            # JNOS bbsmsgno is a synthetic fingerprint generated from the
+            # listing row. Search globally because the same replicated message
+            # may be present on W1XSC, W2XSC, W3XSC, and other JNOS BBSs.
+            return (
+                self.dao.get_inbound_by_bbsmsgno(
+                    bbsmsgno=bbsmsgno,
+                )
+                is not None
             )
-        # Non-JNOS: locator dedupe
-        """
-        
-        # print(f"***DEBUG[m.repo-584] bbs_Call={bbs_call}, bbsmsgno={bbsmsgno}")
-        msg = self.dao.get_inbound_by_bbs_locator(
-            bbs_call=bbs_call,
-            bbsmsgno=bbsmsgno,
+
+        # x138: added for non-JNOS bbs
+        return (
+            self.dao.get_inbound_by_bbs_locator(
+                bbs_call=bbs_call,
+                bbsmsgno=bbsmsgno,
+            )
+            is not None
         )
-        return msg is not None
 
 
-    def inbound_exists_jnos_listing_fingerprint(self, *, bbs_call: str, lm_row: dict, area_hint: str = "") -> bool:
+    # ----------------------------
+    #  260801
+    #  DEDUPE fingerprint check
+    # ----------------------------
+    # !!! Legacy JNOS field-comparison method.              !!!
+    # !!! No longer used by inbound_exists_for_dedupe().    !!!
+    def inbound_exists_jnos_listing_fingerprint(
+        self,
+        *,
+        lm_row: dict,
+        area_hint: str = "",
+    ) -> bool:
         """
-        JNOS LM msg numbers are positional/relative to the current mailbox/area.
+        Determine whether a JNOS listing row matches an inbound message
+        already stored from any BBS.
 
-        Dedup by:
-        - (month/day + truncated from + truncated subject)  AND
-        - the JNOS "area", best represented by TO for bulletins (e.g., XSCPERM/XSCEVENT),
-            with optional area_hint fallback.
+        JNOS message numbers are positional and may differ between BBSs.
+        Replicated messages are therefore matched using:
+
+            - original sent month and day
+            - normalized sender
+            - subject
+            - message length
+
+        The BBS call and bulletin area are intentionally not included so
+        the same replicated message is recognized across different JNOS BBSs.
         """
-        # Expected keys from JNOS row parser: 'date_mon', 'date_day', 'from', 'subject', and often 'to'/'to_call'
-        mon = (lm_row.get("date_mon") or lm_row.get("month") or "").strip()
-        day = str(lm_row.get("date_day") or lm_row.get("day") or "").strip()
-        subj = (lm_row.get("subject") or "").strip()
-        frm = (lm_row.get("from") or "").strip()
-        # print(f"***DEBUG[M.REPO-554]: mon='{mon}', day='{day}', subj='{subj}', frm='{frm}'")  # 260303
+        mon = (
+            lm_row.get("date_mon")
+            or lm_row.get("month")
+            or ""
+        )
+        mon = str(mon).strip()
 
-        # "Area" discriminator (for bulletins, this is TO). Prefer explicit hint, fall back to row.
-        to_area = (area_hint or lm_row.get("to_call") or lm_row.get("to") or "").strip()
-        to_area_norm = to_area.upper() if to_area else ""
+        day = (
+            lm_row.get("date_day")
+            or lm_row.get("day")
+            or ""
+        )
+        day = str(day).strip()
 
-        if not (mon and day and (subj or frm)):
-            # If listing row is incomplete, fall back to "no skip"
+        subj = " ".join(
+            str(lm_row.get("subject") or "").strip().split()
+        )
+
+        frm = (
+            lm_row.get("from")
+            or lm_row.get("from_call")
+            or ""
+        )
+        frm = str(frm).strip().strip("<>").upper()
+
+        # Cross-BBS JNOS messages may show different domains:
+        #
+        #   XSCEOC@W1XSC.AMPR.ORG
+        #   XSCEOC@W4XSC.SCC-ARES-RACES.ORG
+        #
+        # For duplicate comparison, retain only the local sender name.
+        if "@" in frm:
+            frm = frm.split("@", 1)[0].strip()
+
+        raw_size = (
+            lm_row.get("size")
+            or lm_row.get("bytes")
+            or lm_row.get("messagelen")
+            or ""
+        )
+
+        try:
+            msg_size = int(str(raw_size).strip())
+        except (TypeError, ValueError):
+            # Without a usable size, do not risk skipping a valid message.
             return False
 
-        return bool(self.dao.inbound_exists_jnos_listing_fingerprint(
-            bbs_call=bbs_call,
+        if not mon or not day or not frm or not subj:
+            # An incomplete listing row is not safe for cross-BBS dedupe.
+            return False
+
+        return self.dao.inbound_exists_jnos_listing_fingerprint(
             lm_month=mon,
             lm_day=day,
             lm_subject=subj,
             lm_from=frm,
-            lm_to=to_area_norm,   # <-- add this
-        ))
-
+            lm_size=msg_size,
+        )

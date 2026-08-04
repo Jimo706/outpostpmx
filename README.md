@@ -1,4 +1,5 @@
 # OutpostX Suite
+revised: 260803
 
 *A cross-platform communications suite for Amateur Radio Packet
 Operations*
@@ -91,6 +92,7 @@ Both applications share a common design philosophy, including:
     Ubuntu Linux          ✅
     Raspberry Pi OS       ✅
     macOS Intel           ✅
+    openSUSE 16.0 Leap    ✅
     macOS Apple Silicon   Coming Soon
 
 ------------------------------------------------------------------------
@@ -102,7 +104,7 @@ The suite is currently in active beta development.
 -   Windows builds complete
 -   Linux builds complete
 -   macOS builds complete
--   Raspberry Pi tested
+-   Raspberry Pi builds complete
 -   Cross-platform packaging operational
 
 Current work includes:
@@ -162,8 +164,7 @@ in the future, including:
 
 ## History
 
-OutpostX is the successor to the original **Outpost Packet Message
-Manager**, first developed in 2003.
+OutpostX is the successor to the original **Outpost Packet Message Manager**, first developed in 2003.
 
 For more than two decades, Outpost has supported Amateur Radio operators
 involved in:

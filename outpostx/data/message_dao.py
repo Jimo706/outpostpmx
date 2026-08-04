@@ -267,68 +267,162 @@ class MessageDAO:
             return Message.from_messages_row(row)
 
     # ----------------------------
+    #  260801 x138, add
+    # ----------------------------
+    def get_inbound_by_bbsmsgno(
+        self,
+        bbsmsgno: str,
+    ) -> Optional[Message]:
+        """
+        Look up an inbound message by bbsmsgno across all BBSs.
+
+        Used for JNOS synthetic locators. The locator is generated from the
+        JNOS listing fingerprint and is intentionally independent of bbs_call
+        so replicated messages on different JNOS BBSs match.
+        """
+        sql = """
+            SELECT *
+            FROM messages
+            WHERE direction = 'INBOUND'
+            AND bbsmsgno = ?
+            LIMIT 1
+        """
+
+        with self._connect() as conn:
+            row = conn.execute(sql, (bbsmsgno,)).fetchone()
+
+        if not row:
+            return None
+
+        return Message.from_messages_row(row)
+
+    # ----------------------------
+    #  260801 x138, full rewrite
     #  helper for JNOS message dedup'ing
     # ----------------------------
+    # !!! Legacy JNOS field-comparison method.              !!!
+    # !!! No longer used by inbound_exists_for_dedupe().    !!!
     def inbound_exists_jnos_listing_fingerprint(
         self,
         *,
-        bbs_call: str,
         lm_month: str,
         lm_day: str,
         lm_subject: str,
         lm_from: str,
-        lm_to: str = "",   # <-- NEW
+        lm_size: int,
     ) -> bool:
         """
-        JNOS inbound dedupe: LM message numbers are positional (and area-relative).
+        Check for an already-stored JNOS message across all BBSs.
 
-        Match on (month/day) plus prefix match on truncated LM columns (subject/from),
-        and include TO (area) as a discriminator for bulletin areas (e.g., XSCPERM/XSCEVENT).
+        JNOS BBSs may replicate the same message while assigning different
+        positional message numbers. The duplicate fingerprint is:
 
-        Assumes rcvd_at is stored in ISO-8601 format.
+            sent month/day
+            normalized sender local-part
+            subject
+            message length
+
+        bbs_call and to_call are intentionally excluded so replicated copies
+        on different JNOS BBSs match the original stored message.
+
+        Processing Path
+        SendReceiveSession._retrieve_one_message()
+                    |
+                    v
+        MessageRepository.inbound_exists_for_dedupe()
+                    |
+                    +-- JNOS
+                    |      |
+                    |      v
+                    |  DAO cross-BBS comparison:
+                    |      month/day
+                    |      sender local-part
+                    |      subject
+                    |      message length
+                    |
+                    +-- Other BBS types
+                        |
+                        v
+                    bbs_call + bbsmsgno
+
         """
         mon_map = {
-            "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04",
-            "MAY": "05", "JUN": "06", "JUL": "07", "AUG": "08",
-            "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12",
+            "JAN": "01",
+            "FEB": "02",
+            "MAR": "03",
+            "APR": "04",
+            "MAY": "05",
+            "JUN": "06",
+            "JUL": "07",
+            "AUG": "08",
+            "SEP": "09",
+            "OCT": "10",
+            "NOV": "11",
+            "DEC": "12",
         }
-        mm = mon_map.get(lm_month.strip()[:3].upper())
+
+        mm = mon_map.get(str(lm_month).strip()[:3].upper())
         if not mm:
             return False
 
         try:
             dd = int(str(lm_day).strip())
-        except Exception:
+            size = int(lm_size)
+        except (TypeError, ValueError):
             return False
+
+        if dd < 1 or dd > 31 or size < 0:
+            return False
+
         dd2 = f"{dd:02d}"
 
-        subj = (lm_subject or "").strip()
-        frm = (lm_from or "").strip()
-        to_ = (lm_to or "").strip()
+        # LM listing columns may truncate the subject, so retain prefix
+        # matching rather than requiring the complete stored subject.
+        subj = " ".join((lm_subject or "").strip().split())
+        subj_like = subj + "%"
 
-        # Prefix matching because LM columns can be truncated
-        subj_like = subj + "%" if subj else "%"
-        frm_like = frm + "%" if frm else "%"
+        # Repository has already reduced email-style sender values to their
+        # local part. Normalize again defensively.
+        frm = (lm_from or "").strip().strip("<>").upper()
+        if "@" in frm:
+            frm = frm.split("@", 1)[0].strip()
 
-        # TO discriminator (area). If blank, don't constrain (older rows / private mail cases).
-        to_like = to_.upper() + "%" if to_ else "%"
+        if not subj or not frm:
+            return False
 
-
-        # COALESCE function is used to return the first non-NULL value from a list of arguments
         sql = """
             SELECT 1
             FROM messages
-            WHERE direction='INBOUND'
-            AND bbs_call=?
-            AND COALESCE(sent_at, rcvd_at) IS NOT NULL
-            AND strftime('%m', datetime(COALESCE(sent_at, rcvd_at))) = ?
-            AND strftime('%d', datetime(COALESCE(sent_at, rcvd_at))) = ?
-            AND subject LIKE ?
-            AND from_call LIKE ?
-            AND UPPER(to_call) LIKE ?
+            WHERE direction = 'INBOUND'
+            AND sent_at IS NOT NULL
+            AND strftime('%m', datetime(sent_at)) = ?
+            AND strftime('%d', datetime(sent_at)) = ?
+            AND subject LIKE ? COLLATE NOCASE
+            AND UPPER(
+                    CASE
+                        WHEN instr(COALESCE(from_call, ''), '@') > 0
+                        THEN substr(
+                            COALESCE(from_call, ''),
+                            1,
+                            instr(COALESCE(from_call, ''), '@') - 1
+                        )
+                        ELSE COALESCE(from_call, '')
+                    END
+                ) = ?
+            AND messagelen = ?
             LIMIT 1
         """
 
         with self._connect() as conn:
-            row = conn.execute(sql, (bbs_call, mm, dd2, subj_like, frm_like, to_like)).fetchone()
-            return bool(row)
+            row = conn.execute(
+                sql,
+                (
+                    mm,
+                    dd2,
+                    subj_like,
+                    frm,
+                    size,
+                ),
+            ).fetchone()
+
+        return row is not None

@@ -71,6 +71,12 @@ class SetupDialog(QtWidgets.QDialog):
         self._config = config
         self._system_config = system_config
         self._dirty = False
+        # 260730, Issue x133:
+        # Track the last successfully displayed area and configuration row.
+        # These are used to restore the list selection when the user chooses
+        # not to discard unsaved changes.
+        self._previous_area_row = -1
+        self._previous_config_row = -1
 
         self._current_bbs: Optional[BBSProfile] = None
         self._current_interface: Optional[InterfaceProfile] = None
@@ -280,45 +286,94 @@ class SetupDialog(QtWidgets.QDialog):
     # Area switching
     # ------------------------------------------------------------------
     def _on_area_changed(self, row: int) -> None:
+        """
+        Change Setup areas.
+
+        If the current form contains unsaved changes, ask before leaving it.
+        Choosing No restores the previous area selection and leaves the
+        current form unchanged.
+        """
+        if row < 0:
+            return
+
+        # Issue x133: protect unsaved form contents.
+        if self._dirty:
+            if not self._confirm_discard():
+                # Restore only the visual selection. Do not reload the form.
+                if self._previous_area_row >= 0:
+                    # QSignalBlocker is an RAII object (a C++ pattern exposed through Qt).
+                    # Temporarily block currentRowChanged() while restoring the previous
+                    # selection. Without this, setCurrentRow() would emit the signal and
+                    # recursively call _on_area_changed() (or _on_config_selected()).
+                    #
+                    # When the blocker object is destroyed (del blocker), its destructor
+                    # automatically restores the widget's previous signal state so the
+                    # remainder of this function executes with normal signal handling.
+                    blocker = QtCore.QSignalBlocker(self.lst_areas)
+                    self.lst_areas.setCurrentRow(self._previous_area_row)  
+                    del blocker 
+                return
+
+            # The user explicitly chose to discard the edits.
+            # Clear this before the refresh methods select another profile.
+            self._dirty = False
+
         item = self.lst_areas.item(row)
         if not item:
             return
+
         area = item.text()
 
         if area == "BBS":
             self.lbl_configs.setText("BBS configurations")
             self._refresh_bbs_list(select_active=True)
             self.stack.setCurrentIndex(0)
+
         elif area == "Interface":
             self.lbl_configs.setText("Interface configurations")
             self._refresh_interface_list(select_active=True)
             self.stack.setCurrentIndex(4)
+
         elif area == "Station ID":
             self.lbl_configs.setText("Station ID configurations")
             self._refresh_station_list(select_active=True)
             self.stack.setCurrentIndex(2)
+
         elif area == "Tactical ID":
             self.lbl_configs.setText("Tactical ID configurations")
             self._refresh_tactical_list(select_active=True)
             self.stack.setCurrentIndex(3)
+
         elif area == "BBS Logon":
             self.lbl_configs.setText("BBS Logon configurations")
             self._refresh_bbs_logon_list(select_any=True)
             self.stack.setCurrentIndex(5)
+
         elif area == "Send/Receive":
             self.lbl_configs.setText("Send/Receive settings")
             self._refresh_send_receive()
             self.stack.setCurrentIndex(6)
+
         elif area == "Message Settings":
             self.lbl_configs.setText("Message Settings")
             self._refresh_message_settings()
             self.stack.setCurrentIndex(7)
+
         else:  # General
             self.lbl_configs.setText("General configurations")
+
+            blocker = QtCore.QSignalBlocker(self.lst_configs)
             self.lst_configs.clear()
+            del blocker
+
             self.stack.setCurrentIndex(1)
+            self._dirty = False
 
         self._update_toolbar_for_area(area)
+
+        # This area is now the successfully displayed area.
+        self._previous_area_row = row
+
 
     def _update_toolbar_for_area(self, area: str) -> None:
         """Enable/disable toolbar buttons based on active area."""
@@ -636,11 +691,37 @@ class SetupDialog(QtWidgets.QDialog):
     # Config selection
     # ------------------------------------------------------------------
     def _on_config_selected(self, row: int) -> None:
+        """
+        Load the selected configuration profile.
+
+        If the current form contains unsaved changes, ask before replacing it.
+        Choosing No restores the previous list selection and preserves the
+        current form exactly as entered.
+        """
+        if row < 0:
+            return
+
+        # Issue x133: protect unsaved form contents.
+        if self._dirty:
+            if not self._confirm_discard():
+                # See _on_area_changed() for the detailed explanation.
+                # Restore the previous selection without emitting currentRowChanged().
+                # See the comments in _on_area_changed() for details.
+                if self._previous_config_row >= 0:
+                    blocker = QtCore.QSignalBlocker(self.lst_configs)
+                    self.lst_configs.setCurrentRow(self._previous_config_row)
+                    del blocker
+                return
+
+            # User chose to discard the unsaved edits.
+            self._dirty = False
+
         profile_id = self._current_config_id()
         if profile_id is None:
             return
 
         area = self._current_area()
+
         if area == "BBS":
             profile = self._bbs_repo.get(profile_id)
             if profile is None:
@@ -648,24 +729,28 @@ class SetupDialog(QtWidgets.QDialog):
             self._current_bbs = profile
             self.bbs_widget.load_profile(profile, interfaces=[])
             self._update_node_path_summary(profile.id)
+
         elif area == "Interface":
             profile = self._iface_repo.get(profile_id)
             if profile is None:
                 return
             self._current_interface = profile
             self.interface_widget.from_dict(profile.data or {})
+
         elif area == "Station ID":
             profile = self._station_repo.get(profile_id)
             if profile is None:
                 return
             self._current_station = profile
             self.station_widget.load_profile(profile)
+
         elif area == "Tactical ID":
             profile = self._tactical_repo.get(profile_id)
             if profile is None:
                 return
             self._current_tactical = profile
             self.tactical_widget.load_profile(profile)
+
         elif area == "BBS Logon":
             profile = self._bbs_logon_repo.get(profile_id)
             if profile is None:
@@ -674,6 +759,10 @@ class SetupDialog(QtWidgets.QDialog):
             self.bbs_logon_widget.load_profile(profile)
 
         self._dirty = False
+
+        # This row is now the successfully loaded configuration.
+        self._previous_config_row = row
+
 
     # ------------------------------------------------------------------
     # Toolbar actions
@@ -898,6 +987,7 @@ class SetupDialog(QtWidgets.QDialog):
 
             self._current_bbs = profile
             saved_id = profile.id                         # <<< ADD THIS
+            self._dirty = False                             # x133
 
             self._refresh_bbs_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
@@ -918,6 +1008,7 @@ class SetupDialog(QtWidgets.QDialog):
 
             self._current_interface = profile
             saved_id = profile.id                         # <<< ADD THIS
+            self._dirty = False                             # x133
             self._refresh_interface_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
@@ -932,6 +1023,7 @@ class SetupDialog(QtWidgets.QDialog):
                 return
             self._current_station = profile
             saved_id = profile.id                         # <<< ADD THIS
+            self._dirty = False                             # x133
             self._refresh_station_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
@@ -946,6 +1038,7 @@ class SetupDialog(QtWidgets.QDialog):
                 return
             self._current_tactical = profile
             saved_id = profile.id                         # <<< ADD THIS
+            self._dirty = False                             # x133
             self._refresh_tactical_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
@@ -960,6 +1053,7 @@ class SetupDialog(QtWidgets.QDialog):
                 return
             self._current_bbs_logon = profile
             saved_id = profile.id                         # <<< ADD THIS
+            self._dirty = False                             # x133
             self._refresh_bbs_logon_list(select_any=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 

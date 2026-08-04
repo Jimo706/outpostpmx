@@ -1783,7 +1783,6 @@ class SendReceiveSession:
             fallback_prompt=fallback_prompt,
         )
 
-
         # ------------------------------------------------------------
         # HELPER ROUTINES: run list command for a category and return eligible msg ids
         # ------------------------------------------------------------
@@ -1808,25 +1807,49 @@ class SendReceiveSession:
             if self.trace: 
                 self._log(f">>>>>TRACE -- SendReceiveSession.compute_jnos_synth_bbsmsgno")
 
-            ### CONFIRMED: self._log(f">>>>> Entered compute_jnos_synth_bbsmsgno <<<<<")
-            # get the appropriate fields for the synthetic JNOS bbsmsgno
-            # ar = (area_hint or lm_row.get("to_call") or lm_row.get("to") or "").strip().upper()
-            # sa = (lm_row.get("sent_at_normalized") or lm_row.get("sent_at") or "").strip()
-            # tc = (lm_row.get("to") or lm_row.get("to_call") or "").strip().upper()
-            # sz = str(lm_row.get("size") or lm_row.get("bytes") or "").strip()         # OMIT: NOT STABLE
-            fc = (lm_row.get("from") or lm_row.get("from_call") or "").strip().upper()
-            tc = (lm_row.get("to") or lm_row.get("to_call") or "").strip().upper()
-            sj = " ".join((lm_row.get("subject") or "").strip().split()).replace("|", "/")
-            dm = (lm_row.get("month") or "").strip().upper()
-            dd = (lm_row.get("day") or "").strip().upper()
+            # Normalize the sender to its local part. JNOS routing domains may
+            # differ between replicated copies of the same message:
+            #
+            #   XSCEOC@W1XSC.AMPR.ORG
+            #   XSCEOC@W2XSC.AMPR.ORG
+            #
+            # Both must produce the sender identity "XSCEOC".
+            fc = (
+                lm_row.get("from")
+                or lm_row.get("from_call")
+                or ""
+            )
+            fc = str(fc).strip().strip("<>").upper()
 
-            # concatenate the fields
-            # apply a hash, replace non-printable characters, shift string to upper case
-            # and return a 16 character string (J...............)
-            material = f"{fc}|{tc}|{dm}|{dd}|{sj}"
-            ### self._log(f"***DEBUG[-1072] material = {material}")
+            # This should never happen since the LM listing is only for the call sign
+            # if "@" in fc:
+            #     fc = fc.split("@", 1)[0].strip()
+
+            # Normalize subject whitespace and case.
+            sj = " ".join(
+                str(lm_row.get("subject") or "").strip().split()
+            ).replace("|", "/").upper()
+
+            # Original JNOS message date from the listing.
+            dm = str(
+                lm_row.get("date_mon")
+                or lm_row.get("month")
+                or ""
+            ).strip().upper()
+
+            dd = str(
+                lm_row.get("date_day")
+                or lm_row.get("day")
+                or ""
+            ).strip()
+ 
+            # Do not include the BBS call, TO/area, or JNOS message number.
+            # Those values may differ between replicated copies.
+            material = f"{fc}|{dm}|{dd}|{sj}"
+
+            self._log(f"***DEBUG[-1827] material = {material}")
             digest = hashlib.sha1(material.encode("utf-8", errors="replace")).hexdigest().upper()
-            ### self._log(f"***DEBUG[-1074] digest = J{digest[:15]}")
+            self._log(f"***DEBUG[-1829] digest = J{digest[:15]}")
             return "J" + digest[:15]
 
         def _list_ids_for_category(category: str) -> list[str]:
@@ -2274,7 +2297,6 @@ class SendReceiveSession:
                 sent_cfg = (bbs_spec_raw.get("sent_at", {}) or {})
                 assume_tz = (sent_cfg.get("assume_timezone") or "utc").strip().lower()
                 sent_at_normalized = _parse_bbs_datetime_to_iso(raw_sent_at, assume_timezone=assume_tz)
-
 
                 recvmsgid = _g("recvmsgid", "messageid", default=None)
                 parsed_bbs_call = (bbs_call or "").strip()

@@ -1,10 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-
 # 
-# !!! VERIFY that 'opx_suite_win.spec' is in the 'C:\dev\opx' directory
 # to RUN:
 #   (venv)> cd C:\dev\outpostpmx
-#   (venv)> python -m PyInstaller -y --clean outpostpmx_win.spec
+#   (venv)> python -m PyInstaller -y --clean outpostpmx_windows.spec
 # 
 
 import shutil

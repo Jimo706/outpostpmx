@@ -147,6 +147,18 @@ class SqliteMessageService(MessageService):
                 encoded=norm.base64_encode,
                 messageid=None,
             )
+            # ------------------------------------------------------------
+            # #67/260808:
+            # SAVE always returns an unsent message to DRAFT state.
+            # If it had previously been QUEUED, remove it from the send queue
+            # and move it back to the Drafts folder.
+            # ------------------------------------------------------------
+            self.msg_repo.mark_draft(msgidx)
+
+            drafts_idx = self._drafts_folderidx or self._default_outbound_folderidx()
+            if drafts_idx is not None:
+                self.msg_repo.move_to_folder(msgidx, drafts_idx)
+
             return msgidx
 
         # New draft → create_outbound as DRAFT OUTBOUND in Drafts, if available
@@ -219,7 +231,8 @@ class SqliteMessageService(MessageService):
         Create a reply draft based on an existing message, returning the new msgidx.
 
         For now:
-        - Uses the original message's BBS and type.
+        - Uses the original message's BBS.
+        - Reply messages always default to PRIVATE. #41
         - Sets From = default from-call from app settings.
         - Sets To   = original FROM.
         - Subject is prefixed with 'RE:' unless it already starts with RE:.
@@ -260,7 +273,8 @@ class SqliteMessageService(MessageService):
             to_call=(msg.from_call or ""),
             subject=subject,
             body="\n\n" + quoted_body,
-            type=self._ui_type_from_message_type(msg.mtype),
+            type="private",
+            # type=self._ui_type_from_message_type(msg.mtype),  # #41, change reply to PRIVATE
             urgent=False,
             req_delivery_rcpt=False,
             req_read_rcpt=False,
@@ -272,7 +286,8 @@ class SqliteMessageService(MessageService):
         """
         Create a forward draft based on an existing message, returning the new msgidx.
 
-        - Uses the original message's BBS and type.
+        - Uses the original message's BBS.
+        - Forward messages always default to PRIVATE. #41
         - Sets From = default from-call.
         - Leaves To   empty (user chooses the destination).
         - Subject is prefixed with 'FW:' unless it already starts with FW:.
@@ -310,7 +325,8 @@ class SqliteMessageService(MessageService):
             to_call="",  # user will pick destination
             subject=subject,
             body="\n\n" + quoted_body,
-            type=self._ui_type_from_message_type(msg.mtype),
+            type="private",
+            # type=self._ui_type_from_message_type(msg.mtype),  # 41, change forward to PRIVATE
             urgent=False,
             req_delivery_rcpt=False,
             req_read_rcpt=False,
@@ -322,6 +338,7 @@ class SqliteMessageService(MessageService):
     def make_resend(self, orig_message_id: int, *, new_message_id: str = "") -> int:
         """
         Create a resend draft from an existing message.
+        - Uses the original message's BBS and message Type.
 
         If new_message_id is blank:
         - preserve the existing subject and local messageid.

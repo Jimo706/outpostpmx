@@ -1,5 +1,5 @@
 # OutpostX Suite
-revised: 260803
+revised: 260805
 
 *A cross-platform communications suite for Amateur Radio Packet
 Operations*
@@ -103,7 +103,7 @@ The suite is currently in active beta development.
 
 -   Windows builds complete
 -   Linux builds complete
--   macOS builds complete
+-   macOS (intel) builds complete
 -   Raspberry Pi builds complete
 -   Cross-platform packaging operational
 
@@ -137,10 +137,13 @@ specification file rather than modifying the application itself.
 
 ## Documentation
 
+Completed documentation includes:
+
+-   Installation
+-   Getting Started
+
 Planned documentation includes:
 
--   Getting Started
--   Installation
 -   Building from Source
 -   Data Directory Policy
 -   Application Architecture

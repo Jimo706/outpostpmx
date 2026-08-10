@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import time
 import re
-import threading  # (ok even if not used elsewhere)
-import hashlib    # required for the DB overwrite issue
+import threading    # (ok even if not used elsewhere)
+import hashlib      # required for the DB overwrite issue
+import base64       # needed for Base 64 message encode/decode
 
 from dataclasses import dataclass
 from datetime import datetime, timezone         # required for data/time processing
@@ -38,7 +39,7 @@ from services.system_config_service import SystemConfigService
 from services.sqlite_message_service import SqliteMessageService
 from services.message_print_service import MessagePrintService, PrintableMessage
 
-from data.message_model import MessageState, Direction
+from data.message_model import MessageState, Direction, MessageType     #155, added MessageType
 from data.message_repo import MessageRepository
 from services.node_path_executor import NodePathExecutor
 from services.bbs_protocol_adapter import BBSProtocolAdapter
@@ -1617,8 +1618,19 @@ class SendReceiveSession:
         # Insert any tags into the message body
         body_text = str(body_text)
 
+        # Base64 encode only for transmission.
+        # The original plain-text body remains unchanged in SQLite.
+        if bool(getattr(msg, "is_encoded", False)):
+            body_bytes = body_text.encode("utf-8")
+            encoded = base64.b64encode(body_bytes).decode("ascii")
+
+            # Wrap the encoded data at 76 characters per line.
+            body_text = "\n".join(
+                encoded[i:i + 76]
+                for i in range(0, len(encoded), 76)
+            )
+
         # Apply Outpost wire-format tags only at transmit time.
-        # Stored message body remains unchanged.
         body_text = self._apply_outbound_wire_tags(msg, body_text)
 
         # Normalize newlines; send line-by-line without embedded \r
@@ -2042,6 +2054,24 @@ class SendReceiveSession:
                         if not msgno:
                             continue
 
+                        # ------------------------------------------------------------
+                        # #153/#154, 260808:
+                        # KPC3 LM may return bulletins addressed to one of our calls.
+                        # During the PRIVATE pass, do not retrieve rows whose KPC3
+                        # status identifies them as bulletins.  Leave them for the
+                        # BULLETIN/LB pass so they are classified correctly and are
+                        # never treated as private for receipt/delete processing.
+                        # ------------------------------------------------------------
+                        if cat == "PRIVATE" and spec_id == "kpc3":
+                            status = str((r.get("status") or "")).strip().upper()
+
+                            if "B" in status:
+                                self._log(
+                                    f"Skipping KPC3 bulletin #{msgno} from PRIVATE list "
+                                    f"(status={status})"
+                                )
+                                continue
+
                         # Per-category selection policy:
                         # - PRIVATE/NTS:    usually only if TO matches my_calls
                         # - WL2K exception: LM rows do not include a TO field; the mailbox itself
@@ -2273,6 +2303,11 @@ class SendReceiveSession:
                 # 260511 DEBUG
                 self._log(f"***DEBUG RECEIPT: raw body head={repr(str(body_text)[:120])}")
                 body_text, wire_flags = self._strip_inbound_wire_tags(str(body_text))   # strip any tags to the message
+
+                # 112, 08/08/26
+                if wire_flags["is_encoded"]:
+                    body_text = self._decode_inbound_base64(body_text)
+
                 header = _g("header", default=None)
                 from_call = _g("from_call", "from", default="")
                 to_call = _g("to_call", "to", default="")
@@ -2377,6 +2412,17 @@ class SendReceiveSession:
 
                 ### self._log(f"WL2K DEBUG: raw_sent_at={raw_sent_at!r} sent_at_normalized={sent_at_normalized!r}")
 
+                # ------------------------------------------------------------
+                # #155/260806: Preserve inbound message type
+                # The retrieval category is authoritative for the message type.
+                # ------------------------------------------------------------
+                if cat == "BULLETIN":
+                    mtype = MessageType.BULLETIN
+                elif cat == "NTS":
+                    mtype = MessageType.NTS
+                else:
+                    mtype = MessageType.PRIVATE
+
                 # Repository parameter remains named sent_at_iso for API compatibility.
                 # Value may be UTC-Z or no-Z Local depending on what the BBS reported.     
                 # And, write (Update/Insert) the message to the DB; updd: 260430
@@ -2394,6 +2440,7 @@ class SendReceiveSession:
                     body_text=str(body_text),
                     sent_at_normalized=None if sent_at_normalized is None else str(sent_at_normalized),
                     recvmsgid=recvmsgid if recvmsgid is None else str(recvmsgid),
+                    mtype=mtype,
                     urgent=bool(_g("urgent", "is_urgent", default=False)) or wire_flags["is_urgent"],
                     encoded=bool(_g("encoded", "is_encoded", default=False)) or wire_flags["is_encoded"],
                     request_delivery_receipt=bool(_g("is_rdr", default=False)) or wire_flags["is_rdr"],                    
@@ -3355,6 +3402,31 @@ class SendReceiveSession:
         cleaned = "\n".join(cleaned_lines).lstrip("\n")
         return cleaned, flags
 
+    def _decode_inbound_base64(self, body_text: str) -> str:
+        """
+        Decode an inbound Base64 message body.
+
+        Base64 may be wrapped across multiple lines for transport.
+        """
+        text = body_text or ""
+
+        # Base64 transport wrapping is insignificant.
+        compact = "".join(text.split())
+
+        if not compact:
+            return ""
+
+        try:
+            decoded_bytes = base64.b64decode(
+                compact,
+                validate=True,
+            )
+            return decoded_bytes.decode("utf-8")
+
+        except Exception as exc:
+            raise ValueError(
+                f"Invalid Base64 message body: {exc}"
+            ) from exc
 
     # ------------------------------------------------------------------
     #  MID Helpers P132

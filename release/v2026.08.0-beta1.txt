@@ -1,0 +1,20 @@
+v2026.08.0-beta1
+New
+* Updated the Installation Guide and Quick Start Guide.
+* Expanded the Linux Compatibility documentation.
+* Added Processor Requirements to the Compatibility page.
+* Documented that Linux x86-64 builds require a processor supporting SSE4.2 and POPCNT. Older Intel Core 2 systems may fail to launch with a Qt "Incompatible processor" error.
+
+Fixed
+* Documented the missing libgthread dependency required on some Linux distributions.
+* Fixed Setup dialog profile switching that could discard unsaved changes when changing configuration areas. (#133)
+* Clarified processor compatibility for older openSUSE Tumbleweed systems. (#135, #136), see Linux Compatibility, Processor Requirements.
+* Fixed duplicate retrieval of replicated JNOS messages across multiple BBSs. (#138)
+* Fixed new Message forms so the BBS field is initialized to the active BBS profile. (#139)
+
+Known Issues
+* Preferences: Copy Profile is not yet implemented for all configuration areas.
+* Send/Receive: Session dialog header fields may appear blank.
+* macOS Apple Chipset: Application packages are not yet code signed.
+* Scripting: Not yet implemented.
+* Forms: ICS-213 support is planned for a future release.

@@ -107,40 +107,44 @@ class InterfaceProfileRepository:
         """Return a new, unsaved interface profile with empty data dict."""
         return InterfaceProfile()
 
+
+    # ------------------------------------------------------------------
+    # Copy / activate
+    # ------------------------------------------------------------------
     def duplicate(self, profile_id: int) -> InterfaceProfile:
         """
-        Create an unsaved copy of an existing interface profile.
+        #147.  Resolved inconsistent behavior across configuration areas.
+        Duplicate and persist an existing Interface profile.
 
-        The copy has id=None and is_active=False, and its interface_name
-        is suffixed with " (COPY)" to preserve uniqueness.
-        """
-        """
-        Create an in-memory copy of an existing profile.
-
-        The returned profile has id=None and is_active=False. The caller must
-        call save() to persist it.
-
-        For Interface:
-            - The Interface Name is appended with " (COPY)".
+        The copied profile:
+        - receives a new database ID
+        - is not active
+        - receives a unique "(COPY)" name
         """
         original = self.get(profile_id)
         if original is None:
             raise ValueError(f"Interface profile {profile_id} does not exist")
 
-        # Start with a shallow copy of the payload
         data = dict(original.data or {})
 
-        # Determine base name from either the top-level or the payload
         base_name = (original.interface_name or "").strip()
         if not base_name:
             base_name = (data.get("interface_name") or "").strip()
+        if not base_name:
+            base_name = "Unnamed Interface"
 
-        if base_name:
-            new_name = f"{base_name} (COPY)"
-        else:
-            new_name = "Unnamed Interface (COPY)"
+        existing_names = {
+            (profile.interface_name or "").strip().casefold()
+            for profile in self.list_profiles()
+        }
 
-        # Keep payload and top-level name in sync
+        new_name = f"{base_name} (COPY)"
+        suffix = 1
+
+        while new_name.casefold() in existing_names:
+            new_name = f"{base_name} (COPY {suffix})"
+            suffix += 1
+
         data["interface_name"] = new_name
 
         copy = InterfaceProfile(
@@ -149,7 +153,8 @@ class InterfaceProfileRepository:
             is_active=False,
             data=data,
         )
-        return copy
+
+        return self.save(copy)
 
 
     def delete(self, profile_id: int) -> None:

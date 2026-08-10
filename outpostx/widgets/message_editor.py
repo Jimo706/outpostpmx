@@ -617,19 +617,36 @@ class MessageEditorWidget(QtWidgets.QWidget):
         self._append_signature_to_body(sig)
 
     def _append_signature_to_body(self, signature: str) -> None:
-        """Helper to append a signature block to the body text with spacing."""
+        """
+        Append the configured signature to the message body.
+
+        #128/260808:
+        Do not add the same signature more than once.
+        """
+        sig = (signature or "").strip()
+        if not sig:
+            return
+
         body = self.txtBody.toPlainText()
+
+        # Signature already present -- do not append it again.
+        if sig in body:
+            return
+
         body = body.rstrip()
+
         if body:
-            body = body + "\n\n" + signature
+            body = body + "\n\n" + sig
         else:
-            body = signature
+            body = sig
 
         self.txtBody.setPlainText(body)
-        # Move cursor to end so the user can keep typing
+        # Move cursor to start so the user can keep typing
         cursor = self.txtBody.textCursor()
-        cursor.movePosition(QtGui.QTextCursor.End)
+        cursor.movePosition(QtGui.QTextCursor.Start)    # 128, was .End
         self.txtBody.setTextCursor(cursor)
+        self.txtBody.setFocus()
+
         self._dirty = True
 
 

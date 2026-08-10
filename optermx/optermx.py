@@ -27,24 +27,27 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSignalBlocker, Slot
 from PySide6.QtGui import QFont, QTextCursor, QIcon, QAction
 from PySide6.QtWidgets import QFileDialog
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 
 from config.appconfig import appconfig             # needed to get the connection configs
 from config.most_recent_config import MostRecentConfig
 from dialogs.about_dialog import AboutDialog
-from views.main_window_view import Ui_MainWindow
-from transports.connection_factory import get_connection
+from dialogs.hotkey_profile_dialog import HotkeyProfileDialog
+
 from services.gui_adapter import GUIAdapter
 from services.app_paths import AppPaths
 from services.app_info import AppInfo
+from services.desktop_services import (
+    DesktopOpenError,
+    open_directory,
+)
+from services.hotkey_profile_service import HotkeyProfileService
+from transports.connection_factory import get_connection
 from transports.exceptions import OpTermxError
 from widgets.command_entry_edit import CommandEntryEdit
 from pref_dialog import PrefDialog          # required for the Preference Dialog
 from utils import to_bool
 
-from services.hotkey_profile_service import HotkeyProfileService
-from dialogs.hotkey_profile_dialog import HotkeyProfileDialog
+from views.main_window_view import Ui_MainWindow
 
 # temporarily suppress the Deprecation Warning using Python's warnings module
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -142,7 +145,6 @@ class Window(QMainWindow, Ui_MainWindow):
         self.action_serial_to_cmd_mode.triggered.connect(self.serial_to_cmd_mode)        # 251005: send Ctrl-C to serial port
         self.action_load_cmd_file.triggered.connect(self.load_cmd_file)     # 260524: File > Load Cmd File
         self.action_about.triggered.connect(self.show_about)                # 260525: Help > About
-        self.action_open_data_folder.triggered.connect(self.open_data_folder) # 260526
 
 
         # 250824: ADD the combo box to the tool bar.  This cannot be added by Qt Designer
@@ -579,17 +581,23 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEditCmd.setFocus()
 
 
-    # ----------------------------------------------------------------
-    # #260526, Open System File Manager helper
-    # ----------------------------------------------------------------
+ # ----------------------------------------------------------------
+# #260526, Open System File Manager helper
+# #134/260805, Use sanitized environment for Linux/PyInstaller
+# ----------------------------------------------------------------
     def open_data_folder(self):
         """
         Open the OpTermX data directory using the system file manager.
         """
-        QDesktopServices.openUrl(
-            QUrl.fromLocalFile(str(self.paths.data_dir))
-        )
+        try:
+            open_directory(self.paths.data_dir)
 
+        except DesktopOpenError as exc:
+            QMessageBox.warning(
+                self,
+                "Open Data Folder",
+                str(exc),
+            )
 
     # ----------------------------------------------------------------
     # #260701, Hot-Key helpers

@@ -5,7 +5,13 @@ from typing import List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui
 
-from data.message_model import Message, MessageBody, Direction, MessageState
+from data.message_model import (
+    Message,
+    MessageBody,
+    Direction,
+    MessageState,
+    MessageType,
+)
 from data.message_repo import MessageRepository
 
 # P139
@@ -30,7 +36,7 @@ class MessageTableModel(QtCore.QAbstractTableModel):
       7 Time           (rcvd_at for INBOUND; sent_at if SENT; 'none' if DRAFT/QUEUED)
       8 Size           (messagelen)
     """
-    COLS = ("State", "Dir", "BBS", "From", "To", "Local MID", "Subject", "Time", "Size")
+    COLS = ("State", "Type", "BBS", "From", "To", "Local MID", "Subject", "Time", "Size")
 
     def __init__(self, repo: Optional[MessageRepository], parent: Optional[QtCore.QObject] = None):
         super().__init__(parent)
@@ -97,6 +103,13 @@ class MessageTableModel(QtCore.QAbstractTableModel):
         # OUTBOUND & not Draft/Queued
         return msg.sent_at or "none"
 
+    def _type_text(self, msg: Message) -> str:
+        if msg.mtype == MessageType.BULLETIN:
+            return "B"
+        elif msg.mtype == MessageType.NTS:
+            return "NTS"
+        else:
+            return ""        # or "-" if you prefer
 
     def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.DisplayRole):
         if not index.isValid():
@@ -107,7 +120,8 @@ class MessageTableModel(QtCore.QAbstractTableModel):
 
         if role == QtCore.Qt.DisplayRole:
             if col == 0: return msg.mstate.value
-            if col == 1: return "IN" if msg.direction == Direction.INBOUND else "OUT"
+            # if col == 1: return "IN" if msg.direction == Direction.INBOUND else "OUT"
+            if col == 1: return self._type_text(msg)
             if col == 2: return msg.bbs_call
             if col == 3: return msg.from_call
             if col == 4: return msg.to_call
@@ -116,8 +130,13 @@ class MessageTableModel(QtCore.QAbstractTableModel):
             if col == 7: return self._time_text(msg)
             if col == 8: return str(msg.messagelen or 0)
 
+        # Highlight urgent messages in red
+        if role == QtCore.Qt.ForegroundRole and msg.is_urgent:
+            return QtGui.QBrush(QtGui.QColor("red"))
+
         # Bold unread subject
-        if role == QtCore.Qt.FontRole and col == 6 and not msg.is_read:
+        # if role == QtCore.Qt.FontRole and col == 6 and not msg.is_read:   # bold col 6 only
+        if role == QtCore.Qt.FontRole and not msg.is_read:                  # bold the entire row
             f = QtGui.QFont()
             f.setBold(True)
             return f
@@ -125,7 +144,8 @@ class MessageTableModel(QtCore.QAbstractTableModel):
         # Sorting keys
         if role == QtCore.Qt.UserRole:
             if col == 0: return msg.mstate.value
-            if col == 1: return 0 if msg.direction == Direction.INBOUND else 1
+            # if col == 1: return 0 if msg.direction == Direction.INBOUND else 1
+            if col == 1: return self._type_text(msg)
             if col == 2: return msg.bbs_call or ""
             if col == 3: return msg.from_call or ""
             if col == 4: return msg.to_call or ""
@@ -150,7 +170,8 @@ class MessageTableModel(QtCore.QAbstractTableModel):
     def _sort_key_for_col(self, ri: RowItem, col: int):
         msg = ri.msg
         if col == 0: return msg.mstate.value
-        if col == 1: return 0 if msg.direction == Direction.INBOUND else 1
+        # if col == 1: return 0 if msg.direction == Direction.INBOUND else 1
+        if col == 1:  return self._type_text(msg)
         if col == 2: return msg.bbs_call or ""
         if col == 3: return msg.from_call or ""
         if col == 4: return msg.to_call or ""

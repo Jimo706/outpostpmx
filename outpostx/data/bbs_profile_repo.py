@@ -77,26 +77,36 @@ class BBSProfileRepository:
     # ------------------------------------------------------------------
     def duplicate(self, profile_id: int) -> BBSProfile:
         """
-        Create an unsaved copy of an existing BBS profile.
+        #147.  Resolved inconsistent behavior across configuration areas.
+        Duplicate and persist an existing BBS profile.
 
-        The copy has:
-          - id cleared
-          - is_active set False
-          - friendly_name suffixed with " (copy)" if present
+        The copied profile:
+        - receives a new database ID
+        - is not active
+        - receives a unique "(COPY)" name
         """
         original = self.get(profile_id)
         if original is None:
             raise ValueError(f"BBS profile {profile_id} does not exist")
 
-        # 2512001, replace with next: copy = BBSProfile(**{**original.__dict__})
         copy = BBSProfile(**vars(original))
         copy.id = None
         copy.is_active = False
 
-        if copy.friendly_name:
-            copy.friendly_name = f"{copy.friendly_name} (copy)"
+        base_name = (original.friendly_name or "").strip()
+        if not base_name:
+            base_name = "Unnamed BBS"
 
-        return copy
+        new_name = f"{base_name} (COPY)"
+        suffix = 1
+
+        while self.dao.get_by_name(new_name) is not None:
+            new_name = f"{base_name} (COPY {suffix})"
+            suffix += 1
+
+        copy.friendly_name = new_name
+
+        return self.save(copy)
 
 
     def set_active(self, profile_id: int) -> None:

@@ -819,15 +819,24 @@ class SetupDialog(QtWidgets.QDialog):
             if resp != QtWidgets.QMessageBox.Yes:
                 return
 
+        # #147.  Resolved inconsistent behavior across configuration areas.
+        # All should follow the same
+        # duplicate → save → refresh → select copied ID → load
         if area == "BBS":
             try:
                 copy = self._bbs_repo.duplicate(profile_id)
             except ValueError as exc:
                 QtWidgets.QMessageBox.warning(self, "Copy BBS", str(exc))
                 return
+
+            copied_id = copy.id
+
+            self._refresh_bbs_list(select_active=False)
+            self._select_config_id(copied_id)
+
             self._current_bbs = copy
             self.bbs_widget.load_profile(copy, interfaces=[])
-            self._refresh_bbs_list(select_active=False)
+            self._update_node_path_summary(copied_id)
 
         elif area == "Interface":
             try:
@@ -835,9 +844,14 @@ class SetupDialog(QtWidgets.QDialog):
             except ValueError as exc:
                 QtWidgets.QMessageBox.warning(self, "Copy Interface", str(exc))
                 return
+
+            copied_id = copy.id
+
+            self._refresh_interface_list(select_active=False)
+            self._select_config_id(copied_id)
+
             self._current_interface = copy
             self.interface_widget.from_dict(copy.data or {})
-            self._refresh_interface_list(select_active=False)
 
         elif area == "BBS Logon":
             try:
@@ -845,30 +859,45 @@ class SetupDialog(QtWidgets.QDialog):
             except ValueError as exc:
                 QtWidgets.QMessageBox.warning(self, "Copy BBS Logon", str(exc))
                 return
+
+            copied_id = copy.id
+
+            self._refresh_bbs_logon_list(select_any=False)
+            self._select_config_id(copied_id)
+
             self._current_bbs_logon = copy
             self.bbs_logon_widget.load_profile(copy)
-            self._refresh_bbs_logon_list(select_any=False)
 
         elif area == "Tactical ID":
-            # Simple copy: duplicate via repo? (no helper yet, so copy in memory)
             original = self._tactical_repo.get(profile_id)
             if original is None:
                 return
+
             new_profile = TacticalProfile(
-                tactical_call_sign=f"{original.tactical_call_sign}-COPY",
+                tactical_call_sign=f"{original.tactical_call_sign} (COPY)",
                 tactical_location=original.tactical_location,
                 msg_id_prefix=original.msg_id_prefix,
                 signature=original.signature,
                 is_active=False,
             )
+
             try:
                 new_profile = self._tactical_repo.save(new_profile)
             except ValueError as exc:
-                QtWidgets.QMessageBox.warning(self, "Copy Tactical ID", str(exc))
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Copy Tactical ID",
+                    str(exc),
+                )
                 return
+
+            copied_id = new_profile.id
+
+            self._refresh_tactical_list(select_active=False)
+            self._select_config_id(copied_id)
+
             self._current_tactical = new_profile
             self.tactical_widget.load_profile(new_profile)
-            self._refresh_tactical_list(select_active=False)
 
         self._dirty = False
 

@@ -5,24 +5,38 @@ from pathlib import Path
 from typing import Optional, Tuple, List
 
 from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6.QtMultimedia import QSoundEffect
+from PySide6.QtCore import QUrl
+from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrinterInfo
+from PySide6.QtPrintSupport import QPageSetupDialog  #  REMOVE?
+from PySide6.QtGui import QIcon
 
 from app_config import AppConfig
+
 from data.message_dao import MessageDAO
 from data.message_repo import MessageRepository, RepoConfig
 from data.folder_repo import FolderRepo
 from data.message_model import Direction, MessageState, MessageType
 
-from ui.folder_tree_widget import FolderTreeWidget
-from ui.message_table_widget import MessageTableWidget
+from dialogs.about_dialog import AboutDialog
+from dialogs.message_form_window import MessageFormWindow, MessageFormMode
 
+from services.app_paths import AppPaths
+from services.app_info import AppInfo
 from services.message_service import MessageService
 from services.notification_service import NotificationService
-from widgets.message_editor import MessagePayload, TransportMeta
-from ui.notification_window import NotificationWindow
-from ui.setup_dialog import SetupDialog
-
 from services.system_config_service import SystemConfigService, ActiveSelection
 from services.recent_config_service import RecentConfigService
+from services.message_print_service import MessagePrintService, PrintableMessage
+from services.desktop_services import (
+    open_directory,
+    DesktopOpenError,
+)
+
+from ui.folder_tree_widget import FolderTreeWidget
+from ui.message_table_widget import MessageTableWidget
+from ui.notification_window import NotificationWindow
+from ui.setup_dialog import SetupDialog
 from ui.theme import (
     MENU_BAR_STYLE,
     GROUP_BOX_STYLE,
@@ -34,16 +48,7 @@ from ui.theme import (
     primary_toolbutton_style
 )
 
-from PySide6.QtMultimedia import QSoundEffect
-from PySide6.QtCore import QUrl
-from services.message_print_service import MessagePrintService, PrintableMessage
-from PySide6.QtPrintSupport import QPrinter, QPrintDialog, QPrinterInfo
-from PySide6.QtPrintSupport import QPageSetupDialog  #  REMOVE?
-from PySide6.QtGui import QIcon
-from services.app_paths import AppPaths
-
-from dialogs.message_form_window import MessageFormWindow, MessageFormMode
-
+from widgets.message_editor import MessagePayload, TransportMeta
 
 
 # ----------------------------------------------------------------------
@@ -187,8 +192,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         super().__init__(parent)
         self.setObjectName("MainWindow")
-        self.setWindowTitle("OutpostX")
         self.setWindowIcon(QIcon(AppPaths.app_icon()))
+
+        self.apptitle = AppInfo.TITLE
+        self.appversion = AppInfo.APP_VERSION
+        self.setWindowTitle(f"{self.apptitle}    v{self.appversion}")
 
         self._message_forms: list[QtWidgets.QMainWindow] = []
 
@@ -1076,8 +1084,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """After Delete from the compose dialog: refresh the table."""
         self.msgTable.refresh()
 
-    def on_help_about(self) -> None:
-        QtWidgets.QMessageBox.information(self, "About", "OutpostX\n(c) 2026 Jim Oberhofer")
 
     def _on_messages_moved(self, _msgidxs, _dest_folderidx) -> None:
         """
@@ -1092,18 +1098,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.msgTable.preview.clear()
 
 
-    def _open_data_directory(self) -> None:
-        if not self.paths:
+    # ----------------------------------------------------------------
+    # #134/260805, Use sanitized environment for Linux/PyInstaller
+    # ----------------------------------------------------------------
+    def _open_data_directory(self):
+        """
+        Open the OutpostX data directory using the system file manager.
+        """
+        # OPTIONAL: guard against self.paths being missing
+        if self.paths is None:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Open Data Directory",
-                "Application paths are not available.",
+                "The OutpostX data directory is not available.",
             )
             return
 
-        QtGui.QDesktopServices.openUrl(
-            QtCore.QUrl.fromLocalFile(str(self.paths.data_dir))
-        )
+        try:
+            open_directory(self.paths.data_dir)
+
+        except DesktopOpenError as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Open Data Directory",
+                str(exc),
+            )
 
 
     def _on_notifications(self) -> None:
@@ -1124,6 +1143,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.notification_window.raise_()
         self.notification_window.activateWindow()
 
+
+    # ----------------------------------------------------------------
+    # #260525, Help > About.
+    # #148, Help > About.  Leveages what was done for OptermX
+    # ----------------------------------------------------------------
+    # def on_help_about(self) -> None:
+    #     QtWidgets.QMessageBox.information(self, "About", "OutpostX\n(c) 2026 Jim Oberhofer")
+    def on_help_about(self) -> None:
+        dlg = AboutDialog(title=self.apptitle, version=self.appversion, parent=self)
+        dlg.exec()
 
 
     # ------------------------

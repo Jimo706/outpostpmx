@@ -294,6 +294,10 @@ class MessageRepository:
         """Mark an outbound message as QUEUED for send."""
         return self._set_state(msgidx, MessageState.QUEUED)
 
+    def mark_draft(self, msgidx: int) -> int:
+        """#67, 8/8/26: Return an unsent outbound message to DRAFT state."""
+        return self._set_state(msgidx, MessageState.DRAFT)    
+
     def mark_sent(self, msgidx: int, *, sent_at_iso: Optional[str] = None) -> int:
         """Mark an outbound message as SENT and set sent_at timestamp."""
         got = self.dao.get_message(msgidx)

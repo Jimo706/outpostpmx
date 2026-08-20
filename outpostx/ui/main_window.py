@@ -322,19 +322,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.folderTree.refresh()
         self._restore_window_state()
 
-        # Decide which folder to show on startup:
-        # 1) Prefer whatever the FolderTree has selected (restored from last run)
-        # 2) If nothing is selected, fall back to default inbound (Inbox)
+        # --------------------------------------------------------------
+        # #101, 260816: Startup folder preference
+        #
+        # If "Start in Inbox" is enabled, always open Inbox.
+        # Otherwise preserve the previously selected folder and fall
+        # back to Inbox if no previous folder exists.
+        # --------------------------------------------------------------
+        start_in_inbox = self.config.settings.value(
+            "General/start_in_inbox",
+            False,
+            type=bool,
+        )
+
         current = None
-        if hasattr(self.folderTree, "current_folderidx"):
-            current = self.folderTree.current_folderidx()
 
-        initial = current or self.repo_cfg.default_inbound_folderidx
+        if start_in_inbox:
+            initial = self.repo_cfg.default_inbound_folderidx
 
-        # Keep the combo and the table in sync with the chosen folder
+            # Force the Folder Tree selection to Inbox as well.
+            self.folderTree.select_folder(initial)      # 101, 260816
+
+        else:
+            if hasattr(self.folderTree, "current_folderidx"):
+                current = self.folderTree.current_folderidx()
+
+            initial = current or self.repo_cfg.default_inbound_folderidx
+
+        # Keep folder selector and message table synchronized
         self._select_folder_in_combo(initial)
         self.msgTable.setFolder(initial)
-        self.msgTable.view.sortByColumn(7, QtCore.Qt.SortOrder.DescendingOrder)
+        self.msgTable.view.sortByColumn(
+            7,
+            QtCore.Qt.SortOrder.DescendingOrder,
+        )
+
 
         # 260514, P134 
         # Add an open-window holder for dialogs.message_form_window.py
@@ -1388,13 +1410,27 @@ class MainWindow(QtWidgets.QMainWindow):
                 messages_received=messages_received,
             )
 
+        # #152/260812: Build Send/Receive session header values
+        sel = self.system_config.get_active_selection()
+
+        station_label = (
+            (sel.tactical_call or "").strip()
+            or (sel.legal_call or "").strip()
+        )
+
+        bbs_label = (sel.bbs_name or "").strip()
+        interface_label = (sel.interface_name or "").strip()
+
         dlg = SendReceiveSessionDialog(
             session_factory=make_session,
+            station_label=station_label,
+            bbs_label=bbs_label,
+            interface_label=interface_label,
             config=self.config,
             data_dir=self.db_path.parent,
             parent=self,
         )
-
+        
         dlg.messagesReceived.connect(self._on_messages_received_notification)
         dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
 
@@ -1495,10 +1531,28 @@ class MainWindow(QtWidgets.QMainWindow):
     # Sound Handler
     # ----------------------------
     def _on_messages_received_notification(self, payload: object) -> None:
-        data = payload if isinstance(payload, dict) else {}
-        sound_path = (data.get("sound_path") or "").strip()
+        """
+        Handle Send/Receive notifications on the UI thread.
 
-        self._play_receive_sound(sound_path)
+        #162:
+        - Refresh the message list after each successfully received message.
+        - Preserve the existing end-of-receive sound notification.
+        """
+        data = payload if isinstance(payload, dict) else {}
+
+        if data.get("event") == "message_received":
+            self.msgTable.refresh()
+            return
+
+        if data.get("play_sound"):
+            sound_path = (data.get("sound_path") or "").strip()
+            self._play_receive_sound(sound_path)
+
+    # def _on_messages_received_notification(self, payload: object) -> None:
+    #     data = payload if isinstance(payload, dict) else {}
+    #     sound_path = (data.get("sound_path") or "").strip()
+
+    #     self._play_receive_sound(sound_path)
 
 
     def _play_receive_sound(self, sound_path: str = "") -> None:

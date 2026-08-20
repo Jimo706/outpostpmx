@@ -162,17 +162,21 @@ class SendReceiveSessionDialog(QtWidgets.QDialog):
         self._close_requested = False   # need to handle timing with "X" close
 
         # --- UI ---
-        top = QtWidgets.QGridLayout()
-        top.setColumnStretch(1, 1)
-        top.addWidget(QtWidgets.QLabel("Station:"), 0, 0)
-        self.lblStation = QtWidgets.QLabel(station_label)
-        top.addWidget(self.lblStation, 0, 1)
-        top.addWidget(QtWidgets.QLabel("BBS:"), 1, 0)
-        self.lblBbs = QtWidgets.QLabel(bbs_label)
-        top.addWidget(self.lblBbs, 1, 1)
-        top.addWidget(QtWidgets.QLabel("Interface:"), 2, 0)
-        self.lblIface = QtWidgets.QLabel(interface_label)
-        top.addWidget(self.lblIface, 2, 1)
+        # ------------------------------------------------------------
+        # #152/260812:
+        # Display active session configuration on one compact line.
+        # Example: KN6PE -- LCARC -- DEN TNC
+        # ------------------------------------------------------------
+        session_parts = [
+            value.strip()
+            for value in (
+                station_label,
+                bbs_label,
+                interface_label,
+            )
+            if value and value.strip()
+        ]
+        self.lblSessionConfig = QtWidgets.QLabel(" -- ".join(session_parts))
 
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 0)  # indeterminate
@@ -227,10 +231,12 @@ class SendReceiveSessionDialog(QtWidgets.QDialog):
         btnRow.addWidget(self.btnCancel)
         btnRow.addWidget(self.btnClose)
 
+        # #152, replaces top with 'self.lblSessionConfig'
         host = QtWidgets.QVBoxLayout(self)
-        host.addLayout(top)
+        host.addWidget(self.lblSessionConfig)
         host.addSpacing(6)
         host.addWidget(self.progress)
+
         host.addLayout(phaseRow)
         host.addWidget(self.tabs, 1)
         host.addLayout(summaryRow)

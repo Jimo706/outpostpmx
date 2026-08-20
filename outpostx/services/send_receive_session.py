@@ -2489,7 +2489,18 @@ class SendReceiveSession:
                 self._log(f"Receive canceled while reading message #{msg_id}: {e}")
                 return  
 
-            received_new_count += 1     # increment the counter for received messages
+            received_new_count += 1
+
+            # ------------------------------------------------------------
+            # #162/260816:
+            # Notify the UI immediately after each inbound message has been
+            # successfully stored so the message list can refresh while the
+            # Send/Receive session continues.
+            # ------------------------------------------------------------
+            self._messages_received({
+                "event": "message_received",
+                "msgidx": inbound_msgidx,
+            })
 
 
         def _delete_one_message(cat: str, msg_id: str) -> None:

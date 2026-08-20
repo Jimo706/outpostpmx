@@ -17,15 +17,32 @@ class MessageTableView(QtWidgets.QTableView):
     between folders.
     """
     deletePressed = QtCore.Signal()
+    openPressed = QtCore.Signal()       # #165, add a 2nd signal 
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         """
-        Added to support the DEL message delete keypress
+        Keyboard handling for the message list.
+
+        - DEL / Backspace: delete selected message(s)
+        - Enter / Return: open the current message
         """
-        if event.key() in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace):
+        if event.key() in (
+            QtCore.Qt.Key_Delete,
+            QtCore.Qt.Key_Backspace,
+        ):
             self.deletePressed.emit()
             event.accept()
             return
+
+        # #165: Enter/Return behaves exactly like a double-click.
+        if event.key() in (
+            QtCore.Qt.Key_Return,
+            QtCore.Qt.Key_Enter,
+        ):
+            self.openPressed.emit()
+            event.accept()
+            return
+
         super().keyPressEvent(event)
 
 
@@ -116,6 +133,10 @@ class MessageTableWidget(QtWidgets.QWidget):
 
         # supports Select rows → press DEL → move to Trash (or purge if already in Trash)
         self.view.deletePressed.connect(lambda: self._delete_msgidxs(self._selected_msgidxs()))
+        # #165: Enter/Return opens the current message just like a double-click.
+        self.view.openPressed.connect(
+            lambda: self._on_double_click(self.view.currentIndex())
+        )
 
         # Enable drag-only from the table; drop is handled by FolderTreeWidget
         self.view.setDragEnabled(True)
@@ -266,6 +287,27 @@ class MessageTableWidget(QtWidgets.QWidget):
             return None
         return self._msgidx_from_index(idx)
 
+    def _select_msgidx(self, msgidx: int) -> None:
+        """
+        #165, Restore selection/current row for the given message ID.
+        """
+        for row in range(self.model.rowCount()):
+            item = self.model.item_at(row)
+            if not item or item.msg.msgidx is None:
+                continue
+
+            if int(item.msg.msgidx) == int(msgidx):
+                index = self.model.index(row, 0)
+
+                self.view.setCurrentIndex(index)
+                self.view.selectRow(row)
+                self.view.scrollTo(
+                    index,
+                    QtWidgets.QAbstractItemView.ScrollHint.EnsureVisible,
+                )
+                return
+    
+
 
     def _selected_msgidxs(self) -> list[int]:
         """
@@ -351,13 +393,32 @@ class MessageTableWidget(QtWidgets.QWidget):
             self.messageSingleClicked.emit(mid)
 
     def _on_double_click(self, index: QtCore.QModelIndex) -> None:
+        """
+        # 165, adds support for Enter/Return to open a highlighted message
+        Open-message handling shared by double-click and Enter/Return.
+
+            Double-click ──────┐
+                            ↓
+            Enter / Return → _on_double_click()
+                            ↓
+                        Mark Read
+                            ↓
+                        Open Message
+
+        Supports the keyboard workflow:
+        Enter → read → ESC → Down Arrow → Enter → next message.
+        """
         mid = self._msgidx_from_index(index)
         if mid is None or not self._repo:
             return
         # Opening marks as read
         self._repo.mark_read(mid, True)
         self.refresh()
+
+        # #165: Keep the current row on the message that was opened.
+        self._select_msgidx(mid)
         self.messageDoubleClicked.emit(mid)
+
 
     def _on_selection_changed(self, _sel, _desel) -> None:
         idx = self.view.currentIndex()

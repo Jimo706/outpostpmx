@@ -32,7 +32,7 @@ MANIFEST
 .idea/
 
 # Release packages - 260705
-# release/
+release/
 *.log
 *.zip
 *.7z

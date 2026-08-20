@@ -1,0 +1,119 @@
+# ######################
+# ics213_report.json
+# Import Form
+# ######################
+{
+  "form_id": "FEMA.ICS213",
+  "form_version": 1,
+  "name": "ICS 213 General Message",
+
+  "input": {
+    "title": "ICS 213 General Message",
+
+    "fields": [
+      {
+        "id": "incident_name",
+        "label": "Incident Name",
+        "type": "text",
+        "required": false
+      },
+
+      {
+        "id": "to",
+        "label": "To",
+        "type": "text",
+        "required": true
+      },
+
+      {
+        "id": "from",
+        "label": "From",
+        "type": "text",
+        "required": true,
+        "default": "$FROM_USER_NAME"
+      },
+
+      {
+        "id": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true
+      },
+
+      {
+        "id": "date",
+        "label": "Date",
+        "type": "date",
+        "default": "$CURRENT_DATE"
+      },
+
+      {
+        "id": "time",
+        "label": "Time",
+        "type": "time",
+        "default": "$CURRENT_TIME"
+      },
+
+      {
+        "id": "message",
+        "label": "Message",
+        "type": "multiline",
+        "required": true,
+        "rows": 10
+      },
+
+      {
+        "id": "approved_by",
+        "label": "Approved By",
+        "type": "text"
+      }
+    ]
+  }
+}
+# ######################
+# Transport
+# ######################
+{
+  "transport": {
+    "subject": "{{subject}}",
+
+    "text_template":
+      "ICS 213 GENERAL MESSAGE\n\n"
+      "Incident Name: {{incident_name}}\n"
+      "To: {{to}}\n"
+      "From: {{from}}\n"
+      "Subject: {{subject}}\n"
+      "Date: {{date}}    Time: {{time}}\n\n"
+      "MESSAGE:\n"
+      "{{message}}\n\n"
+      "Approved By: {{approved_by}}\n"
+  }
+}
+# ######################
+# Form Overlay
+# ######################
+{
+  "print_template": "ICS213.pdf",
+  "print_fields": [
+    {
+      "field": "incident_name",
+      "page": 1,
+      "x": 72,
+      "y": 690,
+      "width": 220,
+      "height": 18,
+      "font_size": 10
+    },
+    {
+      "field": "message",
+      "page": 1,
+      "x": 72,
+      "y": 360,
+      "width": 468,
+      "height": 180,
+      "font_size": 10,
+      "multiline": true
+    }
+  ]
+}
+

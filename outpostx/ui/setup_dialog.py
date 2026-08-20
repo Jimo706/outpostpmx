@@ -37,11 +37,11 @@ from services.send_receive_settings import (
 from app_config import AppConfig
 
 from ui.message_settings_widget import MessageSettingsWidget
+from ui.general_settings_widget import GeneralSettingsWidget
 from services.message_settings import (
     load_message_settings,
     save_message_settings,
 )
-
 
 
 class SetupDialog(QtWidgets.QDialog):
@@ -174,14 +174,15 @@ class SetupDialog(QtWidgets.QDialog):
         bbs_scroll.setWidget(self.bbs_widget)
         self.stack.addWidget(bbs_scroll)  # index 0
 
-        # Page 1: General (placeholder)
-        self.page_general = QtWidgets.QWidget()
-        general_layout = QtWidgets.QVBoxLayout(self.page_general)
-        lbl_general = QtWidgets.QLabel("General settings not implemented yet.")
-        lbl_general.setAlignment(QtCore.Qt.AlignCenter)
-        general_layout.addWidget(lbl_general)
-        general_layout.addStretch(1)
-        self.stack.addWidget(self.page_general)  # index 1
+        # Page 1: General
+        self.general_widget = GeneralSettingsWidget()
+
+        general_scroll = QtWidgets.QScrollArea()
+        general_scroll.setWidgetResizable(True)
+        general_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        general_scroll.setWidget(self.general_widget)
+
+        self.stack.addWidget(general_scroll)  # index 1
 
         # Page 2: Station ID
         self.station_widget = StationSettingsWidget()
@@ -244,6 +245,7 @@ class SetupDialog(QtWidgets.QDialog):
         self.btn_save.clicked.connect(self._on_save)
         self.btn_cancel.clicked.connect(self._on_cancel)
 
+        self.general_widget.changed.connect(self._on_general_changed)           # #101
         self.bbs_widget.changed.connect(self._on_bbs_changed)
         self.interface_widget.changed.connect(self._on_interface_changed)
         self.station_widget.changed.connect(self._on_station_changed)
@@ -359,12 +361,24 @@ class SetupDialog(QtWidgets.QDialog):
             self._refresh_message_settings()
             self.stack.setCurrentIndex(7)
 
+        # #101
         else:  # General
-            self.lbl_configs.setText("General configurations")
+            self.lbl_configs.setText("General Settings")
 
             blocker = QtCore.QSignalBlocker(self.lst_configs)
             self.lst_configs.clear()
+
+            item = QtWidgets.QListWidgetItem("Global General Settings")
+            item.setData(QtCore.Qt.UserRole, 0)
+            self.lst_configs.addItem(item)
+            self.lst_configs.setCurrentRow(0)
+
             del blocker
+
+            if self._config is not None:
+                self.general_widget.load_settings(
+                    self._config.settings
+                )
 
             self.stack.setCurrentIndex(1)
             self._dirty = False
@@ -396,8 +410,8 @@ class SetupDialog(QtWidgets.QDialog):
 
             # Activate: BBS, Interface, Station ID, Tactical ID
             self.btn_activate.setEnabled(area in {"BBS", "Interface", "Station ID", "Tactical ID"})
-        elif area in {"Send/Receive", "Message Settings"}:
-            # Send/Receive is a single global configuration: only Save/Cancel apply
+
+        elif area in {"General", "Send/Receive", "Message Settings"}:
             self.btn_save.setEnabled(True)
 
     # ------------------------------------------------------------------
@@ -769,22 +783,35 @@ class SetupDialog(QtWidgets.QDialog):
     # ------------------------------------------------------------------
     def _on_new(self) -> None:
         area = self._current_area()
-        if area == "BBS":
-            self._current_bbs = self._bbs_repo.new_profile()
-            self.bbs_widget.load_profile(self._current_bbs, interfaces=[])
-            self._update_node_path_summary(getattr(self._current_bbs, "id", None))
-        elif area == "Interface":
-            self._current_interface = self._iface_repo.new_profile()
-            self.interface_widget.load_default_tnc_profile()
-        elif area == "Station ID":
+
+        # 161, 260812, corrects (i) Interface text handling and (ii) placing the
+        # cursor in the top field.
+        if area == "Station ID":
             self._current_station = self._station_repo.new_profile()
             self.station_widget.load_profile(self._current_station)
+            self.station_widget.edCall.setFocus()
+
         elif area == "Tactical ID":
             self._current_tactical = self._tactical_repo.new_profile()
             self.tactical_widget.load_profile(self._current_tactical)
+            self.tactical_widget.edCall.setFocus()
+
+        elif area == "Interface":
+            self._current_interface = self._iface_repo.new_profile()
+            self.interface_widget.from_dict(
+                self._current_interface.data or {}
+            )
+            self.interface_widget.edInterfaceName.setFocus()
+
+        elif area == "BBS":
+            self._current_bbs = self._bbs_repo.new_profile()
+            self.bbs_widget.load_profile(self._current_bbs)
+            self.bbs_widget.ed_friendly_name.setFocus()
+
         elif area == "BBS Logon":
             self._current_bbs_logon = self._bbs_logon_repo.new_profile()
             self.bbs_logon_widget.load_profile(self._current_bbs_logon)
+            self.bbs_logon_widget.edBBSName.setFocus()
 
         self._dirty = False
 
@@ -1006,7 +1033,28 @@ class SetupDialog(QtWidgets.QDialog):
 
     def _on_save(self) -> None:
         area = self._current_area()
-        if area == "BBS":
+
+        if area == "General":
+            if self._config is None:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "General Settings",
+                    "Application configuration is not available.",
+                )
+                return
+
+            self.general_widget.save_settings(
+                self._config.settings
+            )
+
+            self._dirty = False
+            self._show_saved_toast(
+                self.btn_save,
+                "Saved!"
+            )
+            return
+
+        elif area == "BBS":
             profile = self.bbs_widget.apply_to_profile(self._current_bbs)
             try:
                 profile = self._bbs_repo.save(profile)
@@ -1227,6 +1275,9 @@ class SetupDialog(QtWidgets.QDialog):
     # ------------------------------------------------------------------
     # Dirty tracking
     # ------------------------------------------------------------------
+    def _on_general_changed(self) -> None:      # 101
+        self._dirty = True
+
     def _on_bbs_changed(self) -> None:
         self._dirty = True
 

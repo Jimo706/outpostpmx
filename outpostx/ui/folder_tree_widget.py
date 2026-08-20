@@ -8,8 +8,6 @@ from data.folder_repo import FolderRepo, Folder
 
 SYSTEM_ROOT_ORDER = ("Inbox", "Outbox", "Drafts", "Sent", "Trash")
 
-#TODO: let subdirectories to be added to root directories
-#TODO: Always open the program pointing to the Intray
 
 class FolderTreeView(QtWidgets.QTreeView):
     """
@@ -377,6 +375,18 @@ class FolderTreeWidget(QtWidgets.QWidget):
             self.view.setCurrentIndex(tgt)
             return True
         return False
+
+    def select_folder(self, folderidx: int) -> bool:
+        """
+        # 101, 260816
+        Public API: select the folder with the given folderidx.
+
+        Returns True if the folder was found and selected,
+        otherwise False.
+        """
+        return self._select_by_id(folderidx)
+
+
 
     def closeEvent(self, e: QtGui.QCloseEvent):
         self.saveState()

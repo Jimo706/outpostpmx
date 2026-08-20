@@ -12,13 +12,17 @@ Confirm that:
 * No build artifacts are included.
 * Documentation updates have been staged when appropriate.
 
+If necessary, to remove a file from the Untracked files: list, 
+    (i)   delete the file
+    (ii)  git clean -n
+    (iii) git status 	to confirm
+
 2. Stage the Changes
 For most OutpostPMX development sessions, all completed work is staged together.
 	git add .
 
 If necessary, individual files may also be staged separately.  Example:
 	git add outpostx/services/app_paths.py
-
 3. After staging, verify the results.
 	git status
 
@@ -42,7 +46,7 @@ Good examples include:
 6. Creating a Release Tag
 	A release tag is a permanent label attached to a specific Git commit.
 
-	git tag v2026.07.0-beta1
+	git tag v2026.08.2-beta
 	git tag -a v2026.08.1-beta -m "OutpostPMX 2026.08.2 Beta"
 
 	The first command creates the tag locally.\
@@ -57,5 +61,5 @@ Good examples include:
 8. Push the Tag to GitHub
 	Upload the tag.
 
-	git push origin v2026.07.0-beta1
+	git push origin v2026.08.2-beta
 

@@ -1,5 +1,6 @@
 # ui/message_table_model.py, 251112
 from __future__ import annotations
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -111,6 +112,38 @@ class MessageTableModel(QtCore.QAbstractTableModel):
         else:
             return ""        # or "-" if you prefer
 
+    def _subject_sort_key(self, subject: str) -> str:
+        """
+        #96, 260812
+        Return a normalized subject used only for sorting.
+
+        RE:, FW:, and FWD: prefixes are ignored so replies and forwards
+        sort with the original base subject.
+
+        Examples:
+            "ARES Meeting"            -> "ARES MEETING"
+            "RE: ARES Meeting"        -> "ARES MEETING"
+            "FW: ARES Meeting"        -> "ARES MEETING"
+            "RE: FW: ARES Meeting"    -> "ARES MEETING"
+        """
+        text = (subject or "").strip()
+
+        while True:
+            normalized = re.sub(
+                r"^(RE|FW|FWD|DELIVERED)\s*:\s*",
+                "",
+                text,
+                flags=re.IGNORECASE,
+            )
+
+            if normalized == text:
+                break
+
+            text = normalized.strip()
+
+        return text.upper()
+
+
     def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.DisplayRole):
         if not index.isValid():
             return None
@@ -150,7 +183,7 @@ class MessageTableModel(QtCore.QAbstractTableModel):
             if col == 3: return msg.from_call or ""
             if col == 4: return msg.to_call or ""
             if col == 5: return msg.recvmsgid or ""
-            if col == 6: return msg.subject or ""
+            if col == 6: return self._subject_sort_key(msg.subject)     # #96
             if col == 7: return (msg.sent_at or msg.rcvd_at or "")
             if col == 8: return int(msg.messagelen or 0)
         return None
@@ -176,7 +209,14 @@ class MessageTableModel(QtCore.QAbstractTableModel):
         if col == 3: return msg.from_call or ""
         if col == 4: return msg.to_call or ""
         if col == 5: return msg.recvmsgid or ""
-        if col == 6: return msg.subject or ""
+
+        if col == 6:                             # #96; sort by base subject, then chronologically, then by original subject
+            return (
+                self._subject_sort_key(msg.subject),
+                msg.sent_at or msg.rcvd_at or "",
+                msg.subject or "",
+            )
+
         if col == 7: return self._time_text(msg) or ""
         if col == 8: return int(msg.messagelen or 0)
         return 0

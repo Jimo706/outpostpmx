@@ -25,15 +25,69 @@ from typing import Optional, Dict, Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-# 251128, ADDED 2 lines
-import sys
-import glob
-
-#TODO: set Serial Comm Port to show active ports (QSerialPortInfo)
+# #175, 260902
+from PySide6.QtSerialPort import QSerialPortInfo
 
 
+import sys                  # #175, 260902
+
+# #175, 260902
 def list_serial_ports() -> list[str]:
-    """Return a list of available serial ports for the current OS."""
+    """
+    Return serial ports currently recognized by the operating system.
+           
+        Depending on the platform, this will return (example):
+        Windows:   COM3
+        Linux:     /dev/ttyUSB0
+        macOS:     /dev/cu.... or /dev/tty....
+    """
+    ports: list[str] = []
+
+    for info in QSerialPortInfo.availablePorts():
+
+        # --- Windows handler ---
+        if sys.platform.startswith("win"):
+            port = info.portName().strip()
+
+        # --- Linux handler ---
+        elif sys.platform.startswith("linux"):
+            # Linux may expose many legacy ttyS devices even when
+            # no corresponding serial hardware is actually present.
+            has_identity = (
+                bool(info.description().strip())
+                or bool(info.manufacturer().strip())
+                or bool(info.serialNumber().strip())
+                or info.hasVendorIdentifier()
+                or info.hasProductIdentifier()
+            )
+
+            if not has_identity:
+                continue
+
+            port = info.systemLocation().strip()
+
+        # --- Mac OS handler ---
+        elif sys.platform.startswith("darwin"):
+            port = info.systemLocation().strip()
+
+            # macOS exposes both call-out (/dev/cu.*) and call-in
+            # (/dev/tty.*) devices.  OutpostX initiates the serial
+            # connection, so present the call-out devices.
+            if not port.startswith("/dev/cu."):
+                continue
+
+        else:
+            port = info.systemLocation().strip()
+
+        if port:
+            ports.append(port)
+
+    return sorted(set(ports))
+
+
+"""
+def list_serial_ports() -> list[str]:
+    ""Return a list of available serial ports for the current OS.""
     ports = []
 
     if sys.platform.startswith("win"):
@@ -56,7 +110,7 @@ def list_serial_ports() -> list[str]:
         ports.extend(glob.glob("/dev/cu.*"))
 
     return sorted(set(ports))
-
+"""   
 
 # Toggle thisto hide or disable the non-used Interface types
 USE_HIDE_MODE = True
@@ -142,6 +196,7 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self._build_ui()
         self._connect_signals()
         self._apply_interface_type(self._profile.interface_type)
+        self._is_new_profile = False                                # #174, 260831
 
     # ------------------------------------------------------------------
     # UI construction
@@ -158,16 +213,18 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
 
         self.edInterfaceName = QtWidgets.QLineEdit(self.grpInterface)
         self.edInterfaceName.setMaximumWidth(DEFAULT_INPUT_WIDTH)
+        self.edInterfaceName.setPlaceholderText("New TNC Interface")            # #174, 260831
 
         self.txtDescription = QtWidgets.QPlainTextEdit(self.grpInterface)
         self.txtDescription.setFixedHeight(60)  # or 80 if you want more room
+        self.txtDescription.setTabChangesFocus(True)   # allows tab to tab to the next field
         self.txtDescription.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
         self.cbInterfaceType = QtWidgets.QComboBox(self.grpInterface)
         self.cbInterfaceType.setMaximumWidth(DEFAULT_INPUT_WIDTH)
         self._populate_interface_type_combo()
 
-        iface_layout.addRow("Interface name:", self.edInterfaceName)
+        iface_layout.addRow("Interface name *:", self.edInterfaceName)
         iface_layout.addRow("Description:", self.txtDescription)
         iface_layout.addRow("Interface type:", self.cbInterfaceType)
 
@@ -200,10 +257,13 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.cbTncFlowControl.setMaximumWidth(SMALL_INPUT_WIDTH)
 
         # Populate serial ports dynamically
+
+        # #175, 260902
         ports = list_serial_ports()
-        ports = sorted(ports, key=lambda p: 0 if "by-id" in p else 1)
-        self.cbTncComPort.addItem("")      # allow blank
-        self.cbTncComPort.addItems(ports)
+        if ports:
+            self.cbTncComPort.addItems(ports)
+        else:
+            self.cbTncComPort.addItem("NONE")
 
         self.cbTncBaud.addItems([
             "",
@@ -217,12 +277,12 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.cbTncStopBits.addItems(["", "1", "2"])
         self.cbTncFlowControl.addItems(["", "None", "RTS/CTS", "XON/XOFF"])
 
-        comm_form.addRow("Port:", self.cbTncComPort)
-        comm_form.addRow("Baud:", self.cbTncBaud)
-        comm_form.addRow("Data bits:", self.cbTncDataBits)
-        comm_form.addRow("Parity:", self.cbTncParity)
-        comm_form.addRow("Stop bits:", self.cbTncStopBits)
-        comm_form.addRow("Flow control:", self.cbTncFlowControl)
+        comm_form.addRow("Port *:", self.cbTncComPort)
+        comm_form.addRow("Baud *:", self.cbTncBaud)
+        comm_form.addRow("Data bits *:", self.cbTncDataBits)
+        comm_form.addRow("Parity *:", self.cbTncParity)
+        comm_form.addRow("Stop bits *:", self.cbTncStopBits)
+        comm_form.addRow("Flow control *:", self.cbTncFlowControl)
 
         tnc_layout.addWidget(comm_group)
 
@@ -239,9 +299,9 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.edDisconnectPrompt = QtWidgets.QLineEdit(prompts_group)
         self.edDisconnectPrompt.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
-        prompts_form.addRow("Command prompt:", self.edCmdPrompt)
-        prompts_form.addRow("Timeout prompt:", self.edTimeoutPrompt)
-        prompts_form.addRow("Disconnect prompt:", self.edDisconnectPrompt)
+        prompts_form.addRow("Command prompt *:", self.edCmdPrompt)
+        prompts_form.addRow("Timeout prompt *:", self.edTimeoutPrompt)
+        prompts_form.addRow("Disconnect prompt *:", self.edDisconnectPrompt)
 
         tnc_layout.addWidget(prompts_group)
 
@@ -267,10 +327,10 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.edTncCmdPrefix = QtWidgets.QLineEdit(cmds_group)
         self.edTncCmdPrefix.setMaximumWidth(SMALL_INPUT_WIDTH)
 
-        cmds_form.addRow("MyCall command:", self.edMyCallCmd)
-        cmds_form.addRow("Connect command:", self.edConnectCmd)
-        cmds_form.addRow("Converse command:", self.edConverseCmd)
-        cmds_form.addRow("Day/time command:", self.edDayTimeCmd)
+        cmds_form.addRow("MyCall command *:", self.edMyCallCmd)
+        cmds_form.addRow("Connect command *:", self.edConnectCmd)
+        cmds_form.addRow("Converse command *:", self.edConverseCmd)
+        cmds_form.addRow("Day/time command *:", self.edDayTimeCmd)
         cmds_form.addRow(self.chkIncludeTncPrefix)
         cmds_form.addRow("Command prefix:", self.edTncCmdPrefix)
 
@@ -286,10 +346,12 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
 
         self.txtSendBefore = QtWidgets.QPlainTextEdit(init_group)
         self.txtSendBefore.setPlaceholderText("Commands to send BEFORE connecting…")
+        self.txtSendBefore.setTabChangesFocus(True)   # allows tab to tab to the next field
         self.txtSendBefore.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
         self.txtSendAfter = QtWidgets.QPlainTextEdit(init_group)
         self.txtSendAfter.setPlaceholderText("Commands to send AFTER disconnecting…")
+        self.txtSendAfter.setTabChangesFocus(True)   # allows tab to tab to the next field
         self.txtSendAfter.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
         init_layout.addWidget(self.chkSendInitCmds)
@@ -323,9 +385,9 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.edNetTimeout.setValidator(timeout_validator)
         self.edNetTimeout.setPlaceholderText("5000")
 
-        net_form.addRow("Remote host:", self.edRemoteHost)
-        net_form.addRow("Remote port:", self.edRemotePort)
-        net_form.addRow("Network timeout (ms):", self.edNetTimeout)
+        net_form.addRow("Remote host *:", self.edRemoteHost)
+        net_form.addRow("Remote port *:", self.edRemotePort)
+        net_form.addRow("Network timeout (ms) *:", self.edNetTimeout)
 
         main_layout.addWidget(self.grpNet)
 
@@ -339,8 +401,8 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.edTelnetPasswordPrompt = QtWidgets.QLineEdit(self.grpTelnet)
         self.edTelnetPasswordPrompt.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
-        tel_form.addRow("Logon prompt:", self.edTelnetLogonPrompt)
-        tel_form.addRow("Password prompt:", self.edTelnetPasswordPrompt)
+        tel_form.addRow("Logon prompt *:", self.edTelnetLogonPrompt)
+        tel_form.addRow("Password prompt *:", self.edTelnetPasswordPrompt)
 
         main_layout.addWidget(self.grpTelnet)
 
@@ -365,13 +427,18 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.edAgwPassword.setMaximumWidth(DEFAULT_INPUT_WIDTH)
         self.edAgwPassword.setEchoMode(QtWidgets.QLineEdit.Password)
 
-        agw_form.addRow("Radio port:", self.edAgwRadioPort)
-        agw_form.addRow("TX buffer size:", self.edAgwBufferSize)
+        agw_form.addRow("Radio port *:", self.edAgwRadioPort)
+        agw_form.addRow("TX buffer size *:", self.edAgwBufferSize)
         agw_form.addRow(self.chkAgwLogonRequired)
-        agw_form.addRow("Logon:", self.edAgwLogon)
-        agw_form.addRow("Password:", self.edAgwPassword)
+        agw_form.addRow("Logon *:", self.edAgwLogon)
+        agw_form.addRow("Password *:", self.edAgwPassword)
 
         main_layout.addWidget(self.grpAgwpe)
+
+        # #176, 260901
+        required_note = QtWidgets.QLabel("* Required field")
+        required_note.setStyleSheet("font-style: italic;")
+        main_layout.addWidget(required_note)
 
         main_layout.addStretch(1)
 
@@ -422,10 +489,16 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------
     @QtCore.Slot(int)
     def _on_interface_type_changed(self, index: int) -> None:
+
         itype = self.cbInterfaceType.itemData(index)
         if not itype:
             return
-        self._apply_interface_type(itype)
+
+        if self._is_new_profile:
+            self.load_default_profile(itype)
+        else:
+            self._apply_interface_type(itype)
+
         self.changed.emit()
 
     def _apply_interface_type(self, itype: str) -> None:
@@ -447,14 +520,17 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
 
         if itype in ("TNC_TAPR", "TNC_SCS"):
             apply_group(self.grpTnc, True)
+            self.edInterfaceName.setPlaceholderText("New TNC Interface")        # #174, 260831
 
         elif itype == "TELNET":
             apply_group(self.grpNet, True)
             apply_group(self.grpTelnet, True)
+            self.edInterfaceName.setPlaceholderText("New Telnet Interface")     # #174, 260831
 
         elif itype == "AGWPE":
             apply_group(self.grpNet, True)
             apply_group(self.grpAgwpe, True)
+            self.edInterfaceName.setPlaceholderText("New AGWPE Interface")      # #174, 260831
 
         # Keep combo in sync if we were called programmatically
         idx = self.cbInterfaceType.findData(itype)
@@ -526,6 +602,112 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         self.chkAgwLogonRequired.setChecked(profile.agw_logon_required)
         self.edAgwLogon.setText(profile.agw_logon)
         self.edAgwPassword.setText(profile.agw_password)
+
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def validate_required_fields(self) -> list[str]:
+        """Return required Interface fields that are blank."""
+        missing: list[str] = []
+
+        itype = self.cbInterfaceType.currentData() or "TNC_TAPR"
+
+        # Required for every Interface type
+        if not self.edInterfaceName.text().strip():
+            missing.append("Interface Name")
+
+        # --------------------------------------------------------------
+        # TNC TAPR / TNC SCS
+        # --------------------------------------------------------------
+        if itype in ("TNC_TAPR", "TNC_SCS"):
+
+            #  #175, 260902
+            port = self.cbTncComPort.currentText().strip()
+            if not port or port.upper() == "NONE":
+                missing.append("Port")
+
+            if not self.cbTncBaud.currentText().strip():
+                missing.append("Baud")
+
+            if not self.cbTncDataBits.currentText().strip():
+                missing.append("Data Bits")
+
+            if not self.cbTncParity.currentText().strip():
+                missing.append("Parity")
+
+            if not self.cbTncStopBits.currentText().strip():
+                missing.append("Stop Bits")
+
+            if not self.edCmdPrompt.text().strip():
+                missing.append("Command Prompt")
+
+            if not self.edTimeoutPrompt.text().strip():
+                missing.append("Timeout Prompt")
+
+            if not self.edDisconnectPrompt.text().strip():
+                missing.append("Disconnect Prompt")
+
+            if not self.edMyCallCmd.text().strip():
+                missing.append("MyCall Command")
+
+            if not self.edConnectCmd.text().strip():
+                missing.append("Connect Command")
+
+            if not self.edConverseCmd.text().strip():
+                missing.append("Converse Command")
+
+            if not self.edDayTimeCmd.text().strip():
+                missing.append("Day/Time Command")
+
+        # --------------------------------------------------------------
+        # Telnet
+        # --------------------------------------------------------------
+        elif itype == "TELNET":
+
+            if not self.edRemoteHost.text().strip():
+                missing.append("Remote Host")
+
+            if not self.edRemotePort.text().strip():
+                missing.append("Remote Port")
+
+            if not self.edNetTimeout.text().strip():
+                missing.append("Network Timeout")
+
+            if not self.edTelnetLogonPrompt.text().strip():
+                missing.append("Login Prompt")
+
+            if not self.edTelnetPasswordPrompt.text().strip():
+                missing.append("Password Prompt")
+
+        # --------------------------------------------------------------
+        # AGWPE
+        # --------------------------------------------------------------
+        elif itype == "AGWPE":
+
+            if not self.edRemoteHost.text().strip():
+                missing.append("Remote Host")
+
+            if not self.edRemotePort.text().strip():
+                missing.append("Remote Port")
+
+            if not self.edAgwRadioPort.text().strip():
+                missing.append("Radio Port")
+
+            if not self.edAgwBufferSize.text().strip():
+                missing.append("TX Buffer Size")
+
+            if self.chkAgwLogonRequired.isChecked():
+
+                if not self.edAgwLogon.text().strip():
+                    missing.append("Login")
+
+                if not self.edAgwPassword.text().strip():
+                    missing.append("Password")
+
+        return missing
+    
+
 
     def get_profile(self) -> InterfaceProfile:
         """
@@ -612,63 +794,67 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         - Missing keys are filled with dataclass defaults
         - Resulting InterfaceProfile is pushed into the UI
         """
-        profile = InterfaceProfile(**{**asdict(InterfaceProfile()), **data})
+        self._is_new_profile = False                    # #174, 260831
+
+        base = asdict(InterfaceProfile())       # Start with every defined field
+        base.update(data or {})                 # Overlay the saved values
+
+        profile = InterfaceProfile(**base)      # Build the profile
         self.set_profile(profile)
 
     # ------------------------------------------------------------------
-    # Default TNC profile helper
+    # Default profile helper
     # ------------------------------------------------------------------
-    def make_default_tnc_profile(self) -> InterfaceProfile:
-        """
-        Create a new InterfaceProfile with reasonable defaults.
-
-        BLOB FACTORY:
-        - Creates a complete InterfaceProfile programmatically
-        - Used for 'New Interface' or template creation
-
-        NOTE: These are placeholder defaults. Adjust them to exactly
-        match the IRS page 44/47 values.
-        """
+    def make_default_profile(self, interface_type: str = "TNC_TAPR") -> InterfaceProfile:
         profile = InterfaceProfile()
+        profile.interface_type = interface_type
 
-        # Basic identity
-        profile.interface_name = "New TNC Interface"
-        profile.description = ""
-        profile.interface_type = "TNC_TAPR"  # or "TNC_SCS" if you prefer
+        if interface_type == "TNC_TAPR":
+            profile.interface_name = ""                         # #174, 260831
+            profile.tnc_baud = "9600"
+            profile.tnc_data_bits = "8"
+            profile.tnc_parity = "None"
+            profile.tnc_stop_bits = "1"
+            profile.tnc_flow_control = "RTS/CTS"
 
-        # Comm port defaults (this is just a hint; user will pick a real /dev/tty*)
-        profile.tnc_com_port = ""
-        profile.tnc_baud = "9600"
-        profile.tnc_data_bits = "8"
-        profile.tnc_parity = "None"
-        profile.tnc_stop_bits = "1"
-        profile.tnc_flow_control = "None"
+            profile.tnc_cmd_prompt = "cmd:"
+            profile.tnc_timeout_prompt = "*** retry count exceeded"
+            profile.tnc_disconnect_prompt = "*** DISCONNECTED"
 
-        # Prompts (tune to IRS specifics)
-        profile.tnc_cmd_prompt = "cmd:"
-        profile.tnc_timeout_prompt = "*** retry count exceeded"
-        profile.tnc_disconnect_prompt = "*** DISCONNECTED"
+            profile.tnc_mycall_cmd = "MYCALL"
+            profile.tnc_connect_cmd = "C"
+            profile.tnc_converse_cmd = "CONV"
+            profile.tnc_daytime_cmd = "DAYTIME"
 
-        # Commands (tune as needed)
-        profile.tnc_mycall_cmd = "MYCALL"
-        profile.tnc_connect_cmd = "C"
-        profile.tnc_converse_cmd = "CONV"
-        profile.tnc_daytime_cmd = "DAYTIME"
-        profile.tnc_include_cmd_prefix = False
-        profile.tnc_cmd_prefix = ""  # e.g., "@" if you use a prefix
+        elif interface_type == "TNC_SCS":
+            profile.interface_name = ""                         # #174, 260831
+            profile.tnc_baud = "9600"
+            profile.tnc_data_bits = "8"
+            profile.tnc_parity = "None"
+            profile.tnc_stop_bits = "1"
+            profile.tnc_flow_control = "RTS/CTS"
 
-        # Init commands (off by default)
-        profile.tnc_send_init_cmds = False
-        profile.tnc_init_before = ""
-        profile.tnc_init_after = ""
+        elif interface_type == "TELNET":
+            profile.interface_name = ""                         # #174, 260831
+            profile.remote_port = "23"
+            profile.remote_timeout = "5000"
+            profile.telnet_logon_prompt = "Callsign :"          # #174, 260831
+            profile.telnet_password_prompt = "Password :"       # #174, 260831
 
-        # Network timeout - 5000 ms as you mentioned
-        profile.remote_timeout = "5000"
-
-        # Telnet / AGWPE left blank by default
-        # (They won’t matter when interface_type is TNC_*)
+        elif interface_type == "AGWPE":
+            profile.interface_name = ""                         # #174, 260831
+            profile.remote_host = "127.0.0.1"
+            profile.remote_port = "8000"
+            profile.remote_timeout = "5000"
+            profile.agw_radio_port = "0"
+            profile.agw_logon_required = False
 
         return profile
+
+    def load_default_profile(self, interface_type: str = "TNC_TAPR") -> None:       # #174, 260831
+        self._is_new_profile = True
+        profile = self.make_default_profile(interface_type)
+        self.set_profile(profile)
 
     def load_default_tnc_profile(self) -> None:
         """
@@ -676,7 +862,6 @@ class InterfaceSetupWidget(QtWidgets.QWidget):
         """
         profile = self.make_default_tnc_profile()
         self.set_profile(profile)
-
 
 # ----------------------------------------------------------------------
 # Manual test harness

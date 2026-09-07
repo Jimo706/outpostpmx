@@ -34,7 +34,8 @@ def seed_runtime_data(paths: AppPaths) -> None:
 
     seed_bbs_specs(paths)
     seed_sounds(paths)
-
+    seed_forms(paths)                                       # #164
+    seed_tools(paths)                                       # #171
 
 def ensure_runtime_dirs(paths: AppPaths) -> None:
     """
@@ -45,6 +46,7 @@ def ensure_runtime_dirs(paths: AppPaths) -> None:
     paths.docs_dir.mkdir(parents=True, exist_ok=True)
     paths.bspecs_dir.mkdir(parents=True, exist_ok=True)
     paths.sounds_dir.mkdir(parents=True, exist_ok=True)
+    paths.forms_dir.mkdir(parents=True, exist_ok=True)      # #164
 
 
 def seed_bbs_specs(paths: AppPaths) -> None:
@@ -57,7 +59,7 @@ def seed_bbs_specs(paths: AppPaths) -> None:
     Destination:
         <DataDir>/bbs_specs/*.json
     """
-    copy_missing_files(
+    copy_files(
         source_dir = Path(paths.resource_path("data/bbs_specs")),
         target_dir=paths.bspecs_dir,
         patterns=("*.json",),
@@ -74,23 +76,91 @@ def seed_sounds(paths: AppPaths) -> None:
     Destination:
         <DataDir>/sounds/
     """
-    copy_missing_files(
+    copy_files(
         source_dir = Path(paths.resource_path("data/sounds")), 
         target_dir=paths.sounds_dir,
         patterns=("*.wav", "*.mp3", "*.ogg"),
     )
 
+def seed_forms(paths: AppPaths) -> None:
+    """
+    #164, 260825
+    Copy packaged OutpostX form definitions and PDF templates into
+    the writable runtime forms directory.
 
-def copy_missing_files(
+    Source:
+        <program resources>/data/forms/
+
+    Destination:
+        <DataDir>/forms/
+
+    Policy:
+        Packaged form files are OutpostPMX-managed official assets.
+        They are refreshed from the packaged copy on startup.
+
+        User-created forms use different filenames/namespaces and are
+        therefore left untouched.
+    """
+    copy_files(
+        source_dir=Path(paths.resource_path("data/forms")),
+        target_dir=paths.forms_dir,
+        patterns=("*.opxform", "*.pdf"),
+        overwrite=True,
+    )
+
+def seed_tools(paths: AppPaths) -> None:
+    """
+    Copy the packaged default tools.json into the writable Data Directory.
+
+    Source:
+        <program resources>/data/tools.json
+
+    Destination:
+        <DataDir>/tools.json
+
+    Existing tools.json is never overwritten.
+    user_tools.json is never created or modified by OutpostX.
+    """
+    source = Path(
+        paths.resource_path("data/tools.json")
+    )
+
+    target = paths.data_dir / "tools.json"
+
+    if not source.exists() or not source.is_file():
+        return
+
+    if target.exists():
+        return
+
+    shutil.copy2(source, target)
+
+
+def copy_files(
     *,
     source_dir: Path,
     target_dir: Path,
     patterns: tuple[str, ...],
+    overwrite: bool = False,
 ) -> None:
     """
-    Copy files from source_dir to target_dir only if missing.
+    # 164. 260825
+    Copy matching files from source_dir to target_dir.
 
-    Existing destination files are preserved.
+    Args:
+        source_dir:
+            Packaged resource directory.
+
+        target_dir:
+            Writable runtime directory.
+
+        patterns:
+            Filename patterns to copy.
+
+        overwrite:
+            False -> preserve existing destination files.
+            True  -> replace destination files with packaged copies.
+
     Subdirectories are not copied.
     """
     if not source_dir.exists() or not source_dir.is_dir():
@@ -105,7 +175,7 @@ def copy_missing_files(
 
             dst = target_dir / src.name
 
-            if dst.exists():
+            if dst.exists() and not overwrite:
                 continue
 
             shutil.copy2(src, dst)

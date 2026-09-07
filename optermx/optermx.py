@@ -128,6 +128,11 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEditCmd.sendRequested.connect(self.click_handler_cmd_send)
         self.lineEditCmd.controlCharRequested.connect(self.send_control_char)   
         self.lineEditCmd.functionKeyRequested.connect(self.insert_hotkey_text)  # 260701             
+
+        # 260829: #173 Character Mode
+        self.lineEditCmd.characterRequested.connect(self.send_character)
+        self.action_character_mode.toggled.connect(self.set_character_mode)
+
         self.pushButtonSend.clicked.connect(self.click_handler_cmd_send)       # the push button
         self.actionE_xit.triggered.connect(self.close)                      # Connect File > Exitto close form.
         self.action_connect.triggered.connect(self.click_connect)           # Connect Tools > Connect 
@@ -223,6 +228,14 @@ class Window(QMainWindow, Ui_MainWindow):
 
     # 250824, CLICK HANDLER for a change in the Interface choice.  Save it to the global variable
     def on_ConnIF_changed(self, index):
+        # #173: Character Mode is Serial-only.
+        # Changing interfaces always returns to normal Line Mode.
+        if (
+            self.action_character_mode.isChecked()
+            and self.cboConnIF.currentText().lower() != "serial"
+        ):
+            self.action_character_mode.setChecked(False)
+
         self.selected_conn_if = self.cboConnIF.currentText().lower()  # 251003, keep canonical internal values as lowercase
         self.load_config(self.selected_conn_if)      
         self.textEditSession.insertPlainText(f"ConnIF selection to {self.selected_conn_if}\n")   # writes IF to the UI
@@ -689,6 +702,58 @@ class Window(QMainWindow, Ui_MainWindow):
         self.textEditSession.ensureCursorVisible()              # # make sure the last line is visible
 
         self._write_session_log(text)
+
+    # ----------------------------------------------------------------
+    # #173/260829: Character-at-a-time terminal mode
+    # ----------------------------------------------------------------
+    def set_character_mode(self, enabled: bool):
+        """
+        Toggle between normal Line Mode and serial Character Mode.
+
+        Line Mode:
+            Accumulate text and send it with CR when Enter/Send is pressed.
+
+        Character Mode:
+            Send each printable character immediately with no CR/LF.
+        """
+        # Character Mode only makes sense for the serial TNC interface.
+        if enabled and self.selected_conn_if != "serial":
+            self.action_character_mode.setChecked(False)
+
+            QMessageBox.information(
+                self,
+                "Character Mode",
+                "Character Mode is available only with the Serial interface."
+            )
+            return
+
+        self.lineEditCmd.clear()
+        self.lineEditCmd.set_character_mode(enabled)
+
+        if enabled:
+            self.pushButtonSend.setEnabled(False)
+            self.statusBar().showMessage("Serial - Character Mode")
+        else:
+            self.pushButtonSend.setEnabled(True)
+            self.update_status(self.selected_conn_if)
+
+        self.lineEditCmd.setFocus()
+
+    def send_character(self, text: str):
+        """
+        Send one character exactly as typed, without CR or LF.
+        """
+        if not self.adapter.is_connected:
+            return
+
+        if self.selected_conn_if != "serial":
+            return
+
+        if not text:
+            return
+
+        self.adapter.send_to_connector(text)
+        self.lineEditCmd.setFocus()
 
 
     @Slot(str)

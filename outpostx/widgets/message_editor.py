@@ -689,8 +689,15 @@ class MessageEditorWidget(QtWidgets.QWidget):
         if request_delivery_receipt:
             self.chkReqDeliv.setChecked(True)
 
-        if subject_prefix and not self.edSubject.text().strip():
-            self.edSubject.setText(subject_prefix)
+        if subject_prefix:          # #164
+            current_subject = self.edSubject.text().strip()
+
+            if current_subject:
+                self.edSubject.setText(
+                    f"{subject_prefix}{current_subject}"        # 260828, removed "} {" space
+                )
+            else:
+                self.edSubject.setText(subject_prefix)
 
         self._dirty = False
 

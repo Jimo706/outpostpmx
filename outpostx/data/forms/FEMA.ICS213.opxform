@@ -1,0 +1,50 @@
+{
+  "opxform_version": 1,
+  "form_id": "FEMA.ICS213",
+  "form_version": 1,
+  "name": "ICS 213 General Message",
+
+  "input": {
+    "title": "ICS 213 General Message",
+
+    "subject": {
+      "source": "field",
+      "value": "subject"
+    },
+
+    "fields": [
+      { "id": "incident_name", "wire_id": "1", "wire_label": "Incident Name", "type": "text",                                      "required": false },
+      { "id": "to",            "wire_id": "2", "wire_label": "TO",            "type": "text",      "hint": "enter a name, position", "required": true  },
+      { "id": "from",          "wire_id": "3", "wire_label": "FROM",          "type": "text",      "hint": "enter a name, position", "required": true  },
+      { "id": "subject",       "wire_id": "4", "wire_label": "Subject",       "type": "text",                                      "required": true  },
+      { "id": "date",          "wire_id": "5", "wire_label": "DATE",          "type": "date",      "default": "$CURRENT_DATE",       "required": true  },
+      { "id": "time",          "wire_id": "6", "wire_label": "Time",          "type": "time",      "default": "$CURRENT_TIME",       "required": true  },
+      { "id": "message",       "wire_id": "7", "wire_label": "Message",       "type": "multiline", "rows": 10,                      "required": true  },
+      { "id": "approved_by",   "wire_id": "8A","wire_label": "APPROVED BY",   "type": "text",                                      "required": true  },
+      { "id": "signed",        "wire_id": "8B","wire_label": "SIGNED",        "type": "checkbox",                                  "required": false },
+      { "id": "position",      "wire_id": "8C","wire_label": "POSITION",      "type": "text",                                      "required": true  }
+    ]
+  },
+
+  "transport": {
+    "show_labels": true,
+    "omit_empty": true
+  },
+
+  "pdf": {
+    "template": "FEMA.ICS213.pdf",
+    "fields": [
+      { "id": "incident_name", "page": 1, "x": 180, "y": 58,  "width": 390, "height": 18,  "font_size": 10 },
+      { "id": "to",            "page": 1, "x": 180, "y": 75,  "width": 390, "height": 18,  "font_size": 10 },
+      { "id": "from",          "page": 1, "x": 180, "y": 105, "width": 390, "height": 18,  "font_size": 10 },
+      { "id": "subject",       "page": 1, "x": 54,  "y": 146, "width": 230, "height": 16,  "font_size": 10 },
+      { "id": "date",          "page": 1, "x": 450, "y": 146, "width": 100, "height": 16,  "font_size": 10 },
+      { "id": "time",          "page": 1, "x": 522, "y": 146, "width": 80,  "height": 16,  "font_size": 10 },
+      { "id": "message",       "page": 1, "x": 54,  "y": 180, "width": 486, "height": 205, "font_size": 12, "multiline": true, "wrap": true },
+      { "id": "approved_by",   "page": 1, "x": 162, "y": 430, "width": 220, "height": 16,  "font_size": 10 },
+		{ "id": "signed",        "page": 1, "x": 306, "y": 430, "width": 220, "height": 16,  "font_size": 8, "source_id": "approved_by", "show_if": "signed", "prefix": "/s/ " },
+      { "id": "position",      "page": 1, "x": 486, "y": 430, "width": 220, "height": 16,  "font_size": 10 }
+    ]
+  }
+}
+

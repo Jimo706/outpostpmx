@@ -20,6 +20,7 @@ from data.message_model import Direction, MessageState, MessageType
 
 from dialogs.about_dialog import AboutDialog
 from dialogs.message_form_window import MessageFormWindow, MessageFormMode
+from dialogs.form_entry_window import FormEntryWindow   # #164
 
 from services.app_paths import AppPaths
 from services.app_info import AppInfo
@@ -31,6 +32,20 @@ from services.message_print_service import MessagePrintService, PrintableMessage
 from services.desktop_services import (
     open_directory,
     DesktopOpenError,
+)
+from services.form_definition_loader import (           # #164
+    FormDefinition,
+    FormRegistry,
+)
+from services.form_transport import render_form_body    # #164
+from services.tool_config import (                      # #171
+    ToolConfigError,
+    ToolDefinition,
+    load_tools,
+)
+from services.tool_launcher import (                    # #171
+    ToolLaunchError,
+    launch_tool,
 )
 
 from ui.folder_tree_widget import FolderTreeWidget
@@ -207,6 +222,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.system_config = system_config
         self.paths = app_paths
         self.recent_config_service = recent_config_service
+
+        # Forms Engine #164
+        self.form_registry = FormRegistry(self.paths.forms_dir)
+        self.form_registry.reload()
 
         # --- Set up Notification Service ---
         self.notification_service = notification_service
@@ -480,6 +499,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Notification Functions
         m_view = mb.addMenu("&View")
         m_view.addAction(self.action_notifications)
+
+        # Forms Menu    #164
+        self.forms_menu = mb.addMenu("F&orms")
+        self._rebuild_forms_menu()
+
+        # Tools Menu    #171
+        self.tools_menu = mb.addMenu("&Tools")
+        self._rebuild_tools_menu()        
 
         # Actions Menu
         m_actions = mb.addMenu("&Actions")
@@ -903,6 +930,329 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._record_active_config_mru()
 
+    # ------------------------------------------------------------------
+    # Forms Engine  #164
+    # ------------------------------------------------------------------
+    def _rebuild_forms_menu(self) -> None:
+        """
+        Rebuild the Forms menu from all valid .opxform definitions.
+        """
+        if not hasattr(self, "forms_menu"):
+            return
+
+        self.forms_menu.clear()
+
+        forms = self.form_registry.forms()
+
+        if not forms:
+            action = self.forms_menu.addAction("(No forms installed)")
+            action.setEnabled(False)
+        else:
+            for form in forms:
+                action = self.forms_menu.addAction(form.name)
+                action.triggered.connect(
+                    lambda checked=False, f=form: self._on_form_selected(f)
+                )
+
+        self.forms_menu.addSeparator()
+
+        reload_action = self.forms_menu.addAction("&Reload Forms")
+        reload_action.triggered.connect(self._reload_forms)
+
+
+    def _reload_forms(self) -> None:
+        """
+        Rescan the Forms directory and rebuild the menu.
+        """
+        forms = self.form_registry.reload()
+        self._rebuild_forms_menu()
+
+        errors = self.form_registry.errors
+
+        if errors:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Reload Forms",
+                "One or more form definitions could not be loaded:\n\n"
+                + "\n".join(errors),
+            )
+            return
+
+        self.statusbar.showMessage(
+            f"Loaded {len(forms)} form(s).",
+            3000,
+        )
+
+
+    def _on_form_selected(self, form: FormDefinition) -> None:
+        """ #164, 260821
+        Open the generic OPXFORM entry window.
+        """
+        dlg = FormEntryWindow(
+            form=form,
+            parent=self,
+        )
+
+        dlg.messageRequested.connect(self._on_form_message_requested)
+        dlg.exec()
+
+
+    def _resolve_form_subject(
+        self,
+        form: FormDefinition,
+        values: dict,
+    ) -> str:
+        """  #164, 260827
+        Resolve the initial Outpost packet Subject from the OPXFORM
+        definition.
+
+        Supported rules:
+
+            source = "field"
+                Use the current value of the named form field.
+
+            source = "fixed"
+                Use the literal text supplied by the form definition.
+
+        For backward compatibility, a form without an input.subject
+        rule falls back to the historical field id "subject".
+        """
+        subject_def = form.input.get("subject")
+
+        if not isinstance(subject_def, dict):
+            return str(
+                values.get("subject", "") or ""
+            ).strip()
+
+        source = str(
+            subject_def.get("source", "") or ""
+        ).strip().lower()
+
+        value = str(
+            subject_def.get("value", "") or ""
+        ).strip()
+
+        if source == "field":
+            return str(
+                values.get(value, "") or ""
+            ).strip()
+
+        if source == "fixed":
+            return value
+
+        return ""
+
+
+    def _on_form_message_requested(
+        self,
+        form: FormDefinition,
+        values: dict,
+    ) -> None:
+        """
+        Convert completed OPXFORM data into a normal Outpost message
+        and open the standard Message Form for packet addressing.
+        """
+        try:
+            body = render_form_body(form, values)
+        except Exception as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Forms Engine",
+                f"Unable to create the form message:\n\n{exc}",
+            )
+            return
+
+        # The served-agency Subject becomes the initial Outpost subject.
+        # MessageFormWindow remains responsible for normal Outpost envelope
+        # defaults such as BBS, From, To, MID settings, etc.
+        subject = self._resolve_form_subject(form, values)
+
+        active_bbs = self.system_config.get_active_bbs()
+
+        bbs_name = ""
+        if active_bbs is not None:
+            bbs_name = (
+                (getattr(active_bbs, "connect_call", "") or "").strip()
+                or (getattr(active_bbs, "bbs_call", "") or "").strip()
+            )
+
+        try:
+            from_call = self.system_config.get_default_from_call()
+        except Exception:
+            from_call = ""
+
+        payload = MessagePayload(
+            bbs_name=bbs_name,
+            from_call=from_call,
+            to_call="",
+            subject=subject,
+            body=body,
+            type="private",
+            urgent=False,
+            req_delivery_rcpt=False,
+            req_read_rcpt=False,
+            base64_encode=False,
+        )
+
+        win = MessageFormWindow(
+            mode=MessageFormMode.NEW,
+            service=self.message_service,
+            system_config=self.system_config,
+            config=self.config,
+            payload=payload,
+            parent=self,
+        )
+
+        win.saved.connect(lambda mid: self._after_compose_change(mid))
+        win.sent.connect(lambda mid: self._after_compose_change(mid))
+        win.deleted.connect(lambda mid: self._after_compose_deleted(mid))
+
+        self._track_message_form(win)
+        win.show()
+
+    # ------------------------------------------------------------------
+    # Tools Menu  #171
+    # ------------------------------------------------------------------
+    def _rebuild_tools_menu(self) -> None:
+        """
+        Rebuild the Tools menu from:
+
+            <DataDir>/tools.json
+            <DataDir>/user_tools.json
+
+        Supplied tools are shown first. User-added tools are shown after
+        a separator.
+        """
+        if not hasattr(self, "tools_menu"):
+            return
+
+        self.tools_menu.clear()
+
+        if self.paths is None:
+            action = self.tools_menu.addAction(
+                "(Tools configuration unavailable)"
+            )
+            action.setEnabled(False)
+            return
+
+        try:
+            tools = load_tools(
+                self.paths.data_dir
+            )
+
+        except ToolConfigError as exc:
+            action = self.tools_menu.addAction(
+                "(Unable to load tools)"
+            )
+            action.setEnabled(False)
+
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Tools",
+                str(exc),
+            )
+            return
+
+        system_tools = [
+            tool
+            for tool in tools
+            if tool.source == "system"
+        ]
+
+        user_tools = [
+            tool
+            for tool in tools
+            if tool.source == "user"
+        ]
+
+        if not tools:
+            action = self.tools_menu.addAction(
+                "(No tools configured)"
+            )
+            action.setEnabled(False)
+
+        for tool in system_tools:
+            self._add_tool_action(tool)
+
+        if system_tools and user_tools:
+            self.tools_menu.addSeparator()
+
+        for tool in user_tools:
+            self._add_tool_action(tool)
+
+        self.tools_menu.addSeparator()
+
+        reload_action = self.tools_menu.addAction(
+            "&Reload Tools"
+        )
+        reload_action.triggered.connect(
+            self._reload_tools
+        )
+
+
+    def _add_tool_action(
+        self,
+        tool: ToolDefinition,
+    ) -> None:
+        action = self.tools_menu.addAction(
+            tool.name
+        )
+
+        action.setStatusTip(
+            f"Launch {tool.name}"
+        )
+
+        action.triggered.connect(
+            lambda checked=False, t=tool:
+                self._launch_configured_tool(t)
+        )
+
+
+    def _reload_tools(self) -> None:
+        """
+        Reload tools.json/user_tools.json and rebuild the Tools menu.
+        """
+        self._rebuild_tools_menu()
+
+        self.statusbar.showMessage(
+            "Tools configuration reloaded.",
+            3000,
+        )
+
+
+    def _launch_configured_tool(
+        self,
+        tool: ToolDefinition,
+    ) -> None:
+        """
+        Launch a configured external tool.
+        """
+        if self.paths is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Tools",
+                "The OutpostX program directory is not available.",
+            )
+            return
+
+        try:
+            launch_tool(
+                tool,
+                program_dir=self.paths.program_dir,
+            )
+
+        except ToolLaunchError as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                tool.name,
+                str(exc),
+            )
+            return
+
+        self.statusbar.showMessage(
+            f"Launched {tool.name}.",
+            3000,
+        )
 
     # ------------------------------------------------------------------
     # Double-click behavior (edit vs view)
@@ -935,6 +1285,7 @@ class MainWindow(QtWidgets.QMainWindow):
             payload=payload,
             transport=transport,
             printable_message=self._printable_message_for_msgidx(msgidx),
+            form_registry=self.form_registry,
             parent=self,
         )
 
@@ -1404,6 +1755,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 system_config=self.system_config,
                 message_repo=self.msg_repo,
                 message_service=self.message_service,
+                form_registry=self.form_registry,
                 logger=logger,
                 transcript=transcript,
                 stop_requested=stop_requested,

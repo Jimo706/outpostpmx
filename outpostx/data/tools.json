@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {
+      "id": "optermx",
+      "name": "Terminal Emulator",
+      "command": "$PROGRAM_DIR/optermx",
+      "arguments": [],
+      "enabled": true
+    }
+  ]
+}

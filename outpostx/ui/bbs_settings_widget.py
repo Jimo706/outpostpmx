@@ -50,12 +50,12 @@ class BBSSettingsWidget(QtWidgets.QWidget):
         self.ed_connect_call.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
         self.txt_description = QtWidgets.QPlainTextEdit()
-        self.txt_description.setMinimumHeight(60)
+        self.txt_description.setFixedHeight(60)
         self.txt_description.setTabChangesFocus(True)   # allows tab to tab to the next field
         self.txt_description.setMaximumWidth(DEFAULT_INPUT_WIDTH)
 
-        fb.addRow("Friendly name:", self.ed_friendly_name)
-        fb.addRow("Connect call:", self.ed_connect_call)
+        fb.addRow("Friendly name *:", self.ed_friendly_name)
+        fb.addRow("Connect call *:", self.ed_connect_call)
         fb.addRow("Description:", self.txt_description)
 
         root.addWidget(basics_group)
@@ -129,17 +129,24 @@ class BBSSettingsWidget(QtWidgets.QWidget):
 
         vi.addWidget(QtWidgets.QLabel("Sent before send/receive:"))
         self.txt_cmd_before = QtWidgets.QPlainTextEdit()
-        self.txt_cmd_before.setMinimumHeight(60)
+        self.txt_cmd_before.setFixedHeight(60)
         self.txt_cmd_before.setTabChangesFocus(True)    # allows tab to tab to the next field
         self.txt_cmd_before.setMaximumWidth(DEFAULT_INPUT_WIDTH)
         vi.addWidget(self.txt_cmd_before)
 
         vi.addWidget(QtWidgets.QLabel("Sent after send/receive:"))
         self.txt_cmd_after = QtWidgets.QPlainTextEdit()
-        self.txt_cmd_after.setMinimumHeight(60)
+        self.txt_cmd_after.setFixedHeight(60)
         self.txt_cmd_after.setTabChangesFocus(True)    # allows tab to tab to the next field
         self.txt_cmd_after.setMaximumWidth(DEFAULT_INPUT_WIDTH)
         vi.addWidget(self.txt_cmd_after)
+
+        init_note = QtWidgets.QLabel(                                   # #176, 260901
+            "* When Always Send BBS Init Commands is selected, "
+            "enter at least one Before or After command."
+        )
+        init_note.setWordWrap(True)
+        vi.addWidget(init_note)
 
         root.addWidget(init_group)
 
@@ -181,7 +188,7 @@ class BBSSettingsWidget(QtWidgets.QWidget):
 
         self.txt_retrieve_selected = QtWidgets.QPlainTextEdit()
         self.txt_retrieve_selected.setPlaceholderText("EQUAKE, ARES")
-        self.txt_retrieve_selected.setMinimumHeight(50)
+        self.txt_retrieve_selected.setFixedHeight(50)
         self.txt_retrieve_selected.setTabChangesFocus(True)     # allows tab to tab to the next field
         self.txt_retrieve_selected.setMaximumWidth(DEFAULT_INPUT_WIDTH)
         vbc.addWidget(self.txt_retrieve_selected)
@@ -292,6 +299,12 @@ class BBSSettingsWidget(QtWidgets.QWidget):
         vp.addWidget(self.w_path_script_buttons)
 
         root.addWidget(path_group)
+
+        # #176, 260901
+        required_note = QtWidgets.QLabel("* Required field")
+        required_note.setStyleSheet("font-style: italic;")
+        root.addWidget(required_note)
+
         root.addStretch(1)
 
         # Wire up simple enable/disable behavior
@@ -420,6 +433,33 @@ class BBSSettingsWidget(QtWidgets.QWidget):
 
         self._update_bulletin_mode()
         self._update_path_mode()
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def validate_required_fields(self) -> list[str]:
+        """Return required BBS fields that are blank."""
+        missing: list[str] = []
+
+        if not self.ed_friendly_name.text().strip():
+            missing.append("Friendly Name")
+
+        if not self.ed_connect_call.text().strip():
+            missing.append("Connect Call")
+
+        # If BBS init commands are enabled, at least one of the
+        # Before or After command blocks must contain something.
+        if self.rb_init_always.isChecked():
+            before = self.txt_cmd_before.toPlainText().strip()
+            after = self.txt_cmd_after.toPlainText().strip()
+
+            if not before and not after:
+                missing.append(
+                    "BBS Init Command — enter at least one Before or After command"
+                )
+
+        return missing
+
 
     def apply_to_profile(self, profile: Optional[BBSProfile] = None) -> BBSProfile:
         """Update ``profile`` from the form and return it.

@@ -46,6 +46,7 @@ class AppPaths:
         self.docs_dir = self.data_dir / "docs"
         self.bspecs_dir = self.data_dir / "bbs_specs"
         self.sounds_dir = self.data_dir / "sounds"
+        self.forms_dir = self.data_dir / "forms"        #  #164
 
         # Create the writable directory tree if needed.
         self._ensure_dirs()
@@ -234,6 +235,10 @@ class AppPaths:
             installation or first-run setup, but all operational 
             sound files reside in the Data Directory.
 
+        forms/
+            User-installable OutpostX form definitions and associated
+            assets such as PDF templates.
+
         Notes:
         - Safe to call repeatedly.
         - Missing directories are created automatically.
@@ -245,6 +250,7 @@ class AppPaths:
         self.docs_dir.mkdir(parents=True, exist_ok=True)
         self.bspecs_dir.mkdir(parents=True, exist_ok=True)
         self.sounds_dir.mkdir(parents=True, exist_ok=True)
+        self.forms_dir.mkdir(parents=True, exist_ok=True)       # #164
 
     # TODO: DEBUG Only.  Remove when certain it works
     def _found_dirs(self):

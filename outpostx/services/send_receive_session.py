@@ -53,6 +53,14 @@ from services.path_script_runner import (
     PathScriptRunner,
 )
 from services.bbs_send_formatter import build_send_blocks
+from data.message_model import (                            # #164
+    MessageState,
+    Direction,
+    MessageType,
+    FormType,
+)
+from services.form_transport import parse_form_body         # #164
+from services.form_definition_loader import FormRegistry    # #164
 
 from pprint import pformat                      # required for pformat
 from email.utils import parsedate_to_datetime   # required for data/time processing
@@ -65,6 +73,52 @@ WIRE_TAG_BASE64 = "!B64!"
 WIRE_TAGS = (WIRE_TAG_RDR, WIRE_TAG_URGENT, WIRE_TAG_BASE64)
 
 
+# ------------------------------------------------------------
+# JNOS line-wrap handling
+# ------------------------------------------------------------
+JNOS_HARD_LINE_LENGTH = 127     #  #168
+
+def repair_jnos_line_wraps(text: str, line_length: int = JNOS_HARD_LINE_LENGTH) -> tuple[str, int]:
+    """
+    #168, 260824
+    Repair JNOS hard line wraps.
+
+    JNOS inserts a CR/LF after character 127.  By the time inbound
+    text reaches this routine, line endings have been normalized to LF.
+
+    Only remove an LF when the immediately preceding logical line is
+    exactly 127 characters long.
+
+    Returns:
+        (repaired_text, number_of_repairs)
+    """
+    if not text:
+        return text, 0
+
+    lines = text.split("\n")
+    if len(lines) < 2:
+        return text, 0
+
+    repaired = []
+    current = lines[0]
+    repairs = 0
+
+    for next_line in lines[1:]:
+        if len(current) == line_length:
+            current += next_line
+            repairs += 1
+        else:
+            repaired.append(current)
+            current = next_line
+
+    repaired.append(current)
+
+    return "\n".join(repaired), repairs
+
+
+# ------------------------------------------------------------
+# Everything else
+# ------------------------------------------------------------
 @dataclass(frozen=True)
 class SessionSnapshot:
     """
@@ -106,6 +160,7 @@ class SendReceiveSession:
         system_config: SystemConfigService,
         message_repo: MessageRepository,
         message_service: SqliteMessageService,
+        form_registry: FormRegistry | None = None,
         logger=print,
         transcript=None, 
         stop_requested=None,
@@ -114,6 +169,7 @@ class SendReceiveSession:
         self._system_config = system_config
         self._message_repo = message_repo
         self._message_service = message_service
+        self._form_registry = form_registry
         self._log = logger
         self._stop_requested = stop_requested or (lambda: False)
         self._messages_received = messages_received or (lambda _payload: None)
@@ -2300,6 +2356,21 @@ class SendReceiveSession:
 
                 # Extract variables from 'parsed'
                 body_text = _g("body", "body_text", "message", default="")
+
+                if spec_id == "jnos":                       #  #168
+                    for n, line in enumerate(str(body_text).split("\n"), start=1):
+                        self._log(
+                            f"JNOS DEBUG line {n}: len={len(line)} "
+                            f"tail={line[-10:]!r}"
+                        )
+
+                    body_text, repaired_count = repair_jnos_line_wraps(str(body_text))
+
+                    if repaired_count:
+                        self._log(
+                            f"JNOS line-wrap repair: removed {repaired_count} hard wrap(s)"
+                        )
+
                 # 260511 DEBUG
                 self._log(f"***DEBUG RECEIPT: raw body head={repr(str(body_text)[:120])}")
                 body_text, wire_flags = self._strip_inbound_wire_tags(str(body_text))   # strip any tags to the message
@@ -2423,6 +2494,37 @@ class SendReceiveSession:
                 else:
                     mtype = MessageType.PRIVATE
 
+
+                formtype = FormType.PLAIN               # #164
+
+                if self._form_registry is not None:
+                    try:
+                        parsed_form = parse_form_body(
+                            str(body_text),
+                            self._form_registry,
+                        )
+
+                        if parsed_form is not None:
+                            formtype = FormType.ADDON
+
+                            self._log(
+                                f"OPXFORM detected: "
+                                f"{parsed_form.form_id} "
+                                f"v{parsed_form.form_version}"
+                            )
+
+                            if parsed_form.form is None:
+                                self._log(
+                                    "OPXFORM definition not installed "
+                                    "or version does not match."
+                                )
+
+                    except Exception as exc:                            # #164
+                        self._log(
+                            f"WARNING: unable to parse OPXFORM body: {exc}"
+                        )
+
+
                 # Repository parameter remains named sent_at_iso for API compatibility.
                 # Value may be UTC-Z or no-Z Local depending on what the BBS reported.     
                 # And, write (Update/Insert) the message to the DB; updd: 260430
@@ -2440,6 +2542,7 @@ class SendReceiveSession:
                     body_text=str(body_text),
                     sent_at_normalized=None if sent_at_normalized is None else str(sent_at_normalized),
                     recvmsgid=recvmsgid if recvmsgid is None else str(recvmsgid),
+                    formtype=formtype,                                  # #164
                     mtype=mtype,
                     urgent=bool(_g("urgent", "is_urgent", default=False)) or wire_flags["is_urgent"],
                     encoded=bool(_g("encoded", "is_encoded", default=False)) or wire_flags["is_encoded"],

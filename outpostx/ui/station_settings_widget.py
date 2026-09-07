@@ -58,9 +58,9 @@ class StationSettingsWidget(QtWidgets.QWidget):
         self.edName = QtWidgets.QLineEdit()
         self.edPrefix = QtWidgets.QLineEdit()
 
-        form.addRow("User Call Sign:", self.edCall)
-        form.addRow("User Name:", self.edName)
-        form.addRow("Message ID Prefix:", self.edPrefix)
+        form.addRow("User Call Sign *:", self.edCall)
+        form.addRow("User Name *:", self.edName)
+        form.addRow("Message ID Prefix *:", self.edPrefix)
 
         # Signature group (unchanged)
         grp_sig = QtWidgets.QGroupBox("Signature")
@@ -70,6 +70,11 @@ class StationSettingsWidget(QtWidgets.QWidget):
         self.txtSignature.setMinimumHeight(80)
         self.txtSignature.setMaximumHeight(120)
         sig_layout.addWidget(self.txtSignature)
+
+        # #176, 260901
+        required_note = QtWidgets.QLabel("* Required field")
+        required_note.setStyleSheet("font-style: italic;")
+        root.addWidget(required_note)
 
         # Prevent group box from stretching vertically
         policy = grp_sig.sizePolicy()
@@ -158,6 +163,24 @@ class StationSettingsWidget(QtWidgets.QWidget):
         profile.signature = signature
 
         return profile
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def validate_required_fields(self) -> list[str]:
+        """Return the names of required Station ID fields that are blank."""
+        missing: list[str] = []
+
+        if not self.edCall.text().strip():
+            missing.append("User Call Sign")
+
+        if not self.edName.text().strip():
+            missing.append("User Name")
+
+        if not self.edPrefix.text().strip():
+            missing.append("Message ID Prefix")
+
+        return missing
 
     # ------------------------------------------------------------------
     # Change / auto-prefix handling

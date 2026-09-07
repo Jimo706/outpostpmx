@@ -124,6 +124,15 @@ class Ui_MainWindow(object):
         # Help
         self.action_about = QtGui.QAction("About", self)
 
+        # 260829, #173
+        # Terminal input mode
+        self.action_character_mode = QtGui.QAction("Character Mode", self)
+        self.action_character_mode.setShortcut("Ctrl+H")
+        self.action_character_mode.setCheckable(True)
+        self.action_character_mode.setStatusTip(
+            "Send each typed character immediately without CR/LF"
+        )
+
         # Future/test
         self.actionSend_Test_String = QtGui.QAction("Send Test String", self)
 
@@ -155,6 +164,8 @@ class Ui_MainWindow(object):
 
         self.menuTools.addAction(self.action_connect)
         self.menuTools.addAction(self.action_disconnect)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.action_character_mode)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.action_open_data_folder)
         self.menuTools.addAction(self.action_hotkey_profiles)

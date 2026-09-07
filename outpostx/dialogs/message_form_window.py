@@ -1,28 +1,33 @@
 # dialogs/message_form_window.py
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from widgets.message_editor import (
-    MessageEditorWidget,
-    MessageMode,
-    AppConfigContract,
-)
+from dialogs.form_entry_window import FormEntryWindow
+
+from services.form_transport import parse_form_body
+from services.form_definition_loader import FormRegistry
+
 from services.message_service import MessageService, MessagePayload, TransportMeta
 from services.message_print_service import MessagePrintService, PrintableMessage
-from ui.theme import (
-    MENU_BAR_STYLE,
-    toolbar_style,
-    apply_base_main_window_style,
-)
-
 from services.message_settings import (
     load_message_settings,
     allocate_next_mid,
 )
 
+from ui.theme import (
+    MENU_BAR_STYLE,
+    toolbar_style,
+    apply_base_main_window_style,
+)
+from widgets.message_editor import (
+    MessageEditorWidget,
+    MessageMode,
+    AppConfigContract,
+)
 
 class MessageFormMode:
     NEW = "new"
@@ -58,8 +63,9 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         transport: Optional[TransportMeta] = None,
         printable_message: Optional[PrintableMessage] = None,
         system_config=None,
+        form_registry: FormRegistry | None = None,
         parent=None,
-    ) -> None:
+    ) -> None:        
         super().__init__(parent)
 
         self._mode = mode
@@ -68,6 +74,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self._message_id = message_id
         self._printable_message = printable_message
         self._system_config = system_config
+        self._form_registry = form_registry
 
         self.setObjectName("MessageFormWindow")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
@@ -103,12 +110,12 @@ class MessageFormWindow(QtWidgets.QMainWindow):
 
         self.editor.set_signature_context(ctx)
         self.editor.set_hosted_in_mainwindow(True)
-        self._load_editor_defaults()                # loads the BBS dropdown 
-        self._apply_message_settings_defaults()     # ensures MID is set in the subject line
+        self._load_editor_defaults()
 
         if payload is not None:
             self.editor.set_message(payload, transport)
 
+        self._apply_message_settings_defaults()
         self.editor.set_message_id(message_id)
 
         self._build_actions()
@@ -150,6 +157,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actSend.setShortcut("Ctrl+Return")
         self.actSave = QtGui.QAction("&Save", self)
         self.actSave.setShortcut("Ctrl+S")
+        self.actInsertTextFile = QtGui.QAction("Insert &Text File…", self)          # #172
 
         self.actPrint = QtGui.QAction("&Print…", self)
         self.actPrint.setShortcut("Ctrl+P")
@@ -176,6 +184,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actReplyAll.setShortcut("Ctrl+Shift+R")
         self.actForward = QtGui.QAction("&Forward", self)
         self.actForward.setShortcut("Ctrl+F")
+        self.actViewForm = QtGui.QAction("&View Form", self)        # #164
         self.actDelete = QtGui.QAction("&Delete", self)
 
         self.actTypePrivate = QtGui.QAction("Set as Private", self)
@@ -201,6 +210,8 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         # wired connects
         self.actSend.triggered.connect(self._on_send)
         self.actSave.triggered.connect(self._on_save)
+        self.actInsertTextFile.triggered.connect(self._on_insert_text_file)         # #172
+
         self.actPrintPreview.triggered.connect(self._on_print_preview)
         self.actPrint.triggered.connect(lambda: self._on_print(include_headers=True))
         self.actPrintNoHeaders.triggered.connect(lambda: self._on_print(include_headers=False))
@@ -214,6 +225,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actReply.triggered.connect(lambda: self._on_reply(reply_all=False))
         self.actReplyAll.triggered.connect(lambda: self._on_reply(reply_all=True))
         self.actForward.triggered.connect(self._on_forward)
+        self.actViewForm.triggered.connect(self._on_view_form)      # #164
         self.actDelete.triggered.connect(self._on_delete)
 
         self.actResendSameMid.triggered.connect(self._on_resend_same_mid)
@@ -244,8 +256,11 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         m_file.addAction(self.actPrint)
         m_file.addAction(self.actPrintNoHeaders)        
         m_file.addSeparator()
+        m_file.addAction(self.actInsertTextFile)        # #172
+        m_file.addSeparator()
         m_file.addAction(self.actClose)
 
+        m_file.addAction(self.actClose)
         m_edit = mb.addMenu("&Edit")
         m_edit.addAction(self.actCut)
         m_edit.addAction(self.actCopy)
@@ -254,13 +269,17 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         m_edit.addAction(self.actSelectAll)
 
         m_actions = mb.addMenu("&Actions")
+        m_actions.addAction(self.actViewForm)       # #164
+        m_actions.addSeparator()                    # #164
         m_actions.addAction(self.actReply)
         m_actions.addAction(self.actReplyAll)
         m_actions.addAction(self.actForward)
         m_actions.addAction(self.actDelete)
+
         m_resend = m_actions.addMenu("Resend")
         m_resend.addAction(self.actResendSameMid)
         m_resend.addAction(self.actResendNewMid)
+
         m_actions.addSeparator()
         m_actions.addAction(self.actTypePrivate)
         m_actions.addAction(self.actTypeBulletin)
@@ -321,6 +340,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         # File actions
         self.actSend.setEnabled(is_new)
         self.actSave.setEnabled(is_new)
+        self.actInsertTextFile.setEnabled(is_new)       # #172
         self.actPrintPreview.setEnabled(True)
         self.actPrint.setEnabled(True)
         self.actPrintNoHeaders.setEnabled(True)
@@ -333,6 +353,8 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actSelectAll.setEnabled(True)
 
         # Message actions
+        # Structured forms
+        self.actViewForm.setEnabled(is_open and self._can_view_form())
         self.actReply.setEnabled(is_open)
         self.actReplyAll.setEnabled(is_open and self._has_reply_all_targets())
         self.actForward.setEnabled(is_open)
@@ -381,6 +403,86 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actUrgent.setChecked(self.editor.chkUrgent.isChecked())
         self.actReqDeliv.setChecked(self.editor.chkReqDeliv.isChecked())
         self.actBase64.setChecked(self.editor.chkBase64.isChecked())
+
+    # ------------------------------------------------------------------
+    # Insert text file handler
+    # ------------------------------------------------------------------
+    def _on_insert_text_file(self) -> None:
+        """
+        #172
+        Insert the contents of a text file into the message body at the
+        current cursor position.
+
+        The selected file is not attached or otherwise retained. Its text
+        becomes ordinary message-body text.
+        
+        NOTES:
+        * Insert really means insert. Qt's cursor.insertText(text) inserts at the current cursor.
+        * The imported file is not an attachment.
+        * UTF-8 plus Windows fallback. Current files should normally be UTF-8.
+        * Dirty tracking is automatic. txtBody.textChanged already connects to _mark_dirty()
+        """
+        if self._mode != MessageFormMode.NEW:
+            return
+
+        # Remember the last directory used.
+        start_dir = ""
+
+        if self._config is not None:
+            start_dir = (
+                self._config.get(
+                    "MessageEditor/insertTextFileDirectory",
+                    "",
+                )
+                or ""
+            ).strip()
+
+        filename, _selected_filter = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Insert Text File",
+            start_dir,
+            "Text Files (*.txt);;All Files (*)",
+        )
+
+        if not filename:
+            return
+
+        path = Path(filename)
+
+        try:
+            # UTF-8 is preferred. utf-8-sig also removes a Windows BOM.
+            try:
+                text = path.read_text(encoding="utf-8-sig")
+            except UnicodeDecodeError:
+                # Be forgiving of older Windows-created text files.
+                text = path.read_text(encoding="cp1252")
+
+        except (OSError, UnicodeError) as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Insert Text File",
+                "Unable to read the selected text file.\n\n"
+                f"{filename}\n\n"
+                f"{exc}",
+            )
+            return
+
+        if self._config is not None:
+            self._config.set(
+                "MessageEditor/insertTextFileDirectory",
+                str(path.parent),
+            )
+
+        cursor = self.editor.txtBody.textCursor()
+        cursor.insertText(text)
+
+        self.editor.txtBody.setTextCursor(cursor)
+        self.editor.txtBody.setFocus()
+
+        self.statusBar().showMessage(
+            f"Inserted text from {path.name}.",
+            3000,
+        )
 
     # ------------------------------------------------------------------
     # Actions
@@ -688,6 +790,85 @@ class MessageFormWindow(QtWidgets.QMainWindow):
             return ""
 
         return allocate_next_mid(self._config, prefix)
+
+    # ------------------------------------------------------------------
+    # Message Form Parser/View methods
+    # ------------------------------------------------------------------
+    def _parsed_form_message(self):
+        """
+        Parse the currently displayed message body as OPXFORM.
+
+        Returns:
+            ParsedFormMessage when recognized.
+            None when this is an ordinary message.
+        """
+        if self._form_registry is None:
+            return None
+
+        body = self.editor.txtBody.toPlainText()
+
+        try:
+            return parse_form_body(
+                body,
+                self._form_registry,
+            )
+
+        except Exception as exc:
+            print(
+                f"WARNING: unable to parse OPXFORM "
+                f"for View Form: {exc}"
+            )
+            return None
+
+
+    def _can_view_form(self) -> bool:
+        """
+        Return True only when:
+        - this is an OPXFORM message
+        - the matching form definition is installed
+        - the transmitted form version matches
+        """
+        parsed = self._parsed_form_message()
+
+        return (
+            parsed is not None
+            and parsed.form is not None
+        )
+
+
+    def _on_view_form(self) -> None:
+        """
+        Repatriate the displayed OPXFORM body into the generic Forms Engine.
+        """
+        parsed = self._parsed_form_message()
+
+        if parsed is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "View Form",
+                "This message does not contain an OutpostX form.",
+            )
+            return
+
+        if parsed.form is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "View Form",
+                "The matching form definition is not installed "
+                "or its version does not match.\n\n"
+                f"Form ID: {parsed.form_id}\n"
+                f"Form Version: {parsed.form_version}",
+            )
+            return
+
+        dlg = FormEntryWindow(
+            form=parsed.form,
+            values=parsed.values,
+            read_only=True,
+            parent=self,
+        )
+
+        dlg.exec()
 
 
     # ------------------------------------------------------------------

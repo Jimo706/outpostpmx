@@ -19,8 +19,13 @@ class CommandEntryEdit(QPlainTextEdit):
     controlCharRequested = Signal(bytes)
     functionKeyRequested = Signal(str)      # NEW: emits "F1" through "F8"
 
+    # 260829: #173, Character Mode
+    characterRequested = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.character_mode = False
 
         self.setPlaceholderText("Command / text to send")
         self.setTabChangesFocus(True)
@@ -79,6 +84,23 @@ class CommandEntryEdit(QPlainTextEdit):
                 event.accept()
                 return
 
+        # 260829, #173: Character Mode
+        # Send printable characters immediately with no CR/LF.
+        # keyboard → signal → serial port → TNC → echo → display
+        if self.character_mode:
+            text = event.text()
+
+            if text and not ctrl:
+                self.characterRequested.emit(text)
+                event.accept()
+                return
+
+            # Do not allow Enter to accidentally send CR while in
+            # Character Mode.
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                event.accept()
+                return
+
         # Enter sends immediately like a terminal emulator.
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
 
@@ -95,3 +117,12 @@ class CommandEntryEdit(QPlainTextEdit):
             return
 
         super().keyPressEvent(event)
+
+
+    def set_character_mode(self, enabled: bool):
+        self.character_mode = bool(enabled)
+
+        if self.character_mode:
+            self.setPlaceholderText("Character Mode - each key is sent immediately")
+        else:
+            self.setPlaceholderText("Command / text to send")        

@@ -53,9 +53,9 @@ class TacticalSettingsWidget(QtWidgets.QWidget):
         self.edLocation = QtWidgets.QLineEdit()
         self.edPrefix = QtWidgets.QLineEdit()
 
-        form.addRow("Tactical Call Sign:", self.edCall)
-        form.addRow("Tactical Location:", self.edLocation)
-        form.addRow("Message ID Prefix:", self.edPrefix)
+        form.addRow("Tactical Call Sign *:", self.edCall)
+        form.addRow("Tactical Location *:", self.edLocation)
+        form.addRow("Message ID Prefix *:", self.edPrefix)
 
         # Signature group
         grp_sig = QtWidgets.QGroupBox("Signature")
@@ -64,6 +64,11 @@ class TacticalSettingsWidget(QtWidgets.QWidget):
         self.txtSignature.setMinimumHeight(80)
         self.txtSignature.setMaximumHeight(120)
         sig_layout.addWidget(self.txtSignature)
+
+        # #176, 260901
+        required_note = QtWidgets.QLabel("* Required field")
+        required_note.setStyleSheet("font-style: italic;")
+        root.addWidget(required_note)
 
         # Prevent group box from greedily stretching vertically
         policy = grp_sig.sizePolicy()
@@ -132,6 +137,25 @@ class TacticalSettingsWidget(QtWidgets.QWidget):
         profile.signature = sig
 
         return profile
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def validate_required_fields(self) -> list[str]:
+        """Return the names of required Tactical ID fields that are blank."""
+        missing: list[str] = []
+
+        if not self.edCall.text().strip():
+            missing.append("Tactical Call Sign")
+
+        if not self.edLocation.text().strip():
+            missing.append("Tactical Location")
+
+        if not self.edPrefix.text().strip():
+            missing.append("Message ID Prefix")
+
+        return missing
+    
 
     # ------------------------------------------------------------------
     # Helpers

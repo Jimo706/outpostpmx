@@ -19,6 +19,8 @@ added_files = [
          (str(outpostx_root / "polar3232.icns"), "."),
          (str(outpostx_root / "data" / "bbs_specs"), "data/bbs_specs"),
          (str(outpostx_root / "data" / "sounds"), "data/sounds"),
+         (str(outpostx_root / "data" / "forms"), "data/forms"),
+         (str(outpostx_root / "data" / "tools.json"), "data"),       # #171
          ]
 
 # ----------

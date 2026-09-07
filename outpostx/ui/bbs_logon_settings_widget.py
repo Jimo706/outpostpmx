@@ -60,9 +60,9 @@ class BBSLogonSettingsWidget(QtWidgets.QWidget):
         self.edAccessPass = QtWidgets.QLineEdit()
         self.edAccessPass.setEchoMode(QtWidgets.QLineEdit.Password)
 
-        form.addRow("BBS Connect Name:", self.edBBSName)
-        form.addRow("Logon Name:", self.edLogonName)
-        form.addRow("Account Passwd:", self.edAccountPass)
+        form.addRow("BBS Connect Name *:", self.edBBSName)
+        form.addRow("Logon Name *:", self.edLogonName)
+        form.addRow("Account Passwd *:", self.edAccountPass)
         form.addRow("Access Passwd:", self.edAccessPass)
 
         # Show/Hide button row INSIDE the group box
@@ -76,6 +76,11 @@ class BBSLogonSettingsWidget(QtWidgets.QWidget):
         btn_container.setLayout(btn_row)
 
         form.addRow("", btn_container)   # <-- add to the group box's form layout
+
+        # #176, 260901
+        required_note = QtWidgets.QLabel("* Required field")
+        required_note.setStyleSheet("font-style: italic;")
+        root.addWidget(required_note)
 
         root.addStretch(1)
 
@@ -128,6 +133,25 @@ class BBSLogonSettingsWidget(QtWidgets.QWidget):
         profile.access_password = access
 
         return profile
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def validate_required_fields(self) -> list[str]:
+        """Return the names of required BBS Logon fields that are blank."""
+        missing: list[str] = []
+
+        if not self.edBBSName.text().strip():
+            missing.append("BBS Connect Name")
+
+        if not self.edLogonName.text().strip():
+            missing.append("Logon Name")
+
+        if not self.edAccountPass.text().strip():
+            missing.append("Account Passwd")
+
+        return missing
+
 
     # ------------------------------------------------------------------
     # Helpers

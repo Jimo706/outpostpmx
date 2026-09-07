@@ -284,6 +284,16 @@ class SetupDialog(QtWidgets.QDialog):
                 self.lst_configs.setCurrentRow(i)
                 return
 
+
+    def _show_required_fields(self, missing: list[str]) -> None:
+        """#176, 260901, Display all missing required fields in a single warning."""
+        QtWidgets.QMessageBox.warning(
+            self,
+            "Missing Required Fields",
+            "Please complete the following required fields:\n\n"
+            + "\n".join(f"• {name}" for name in missing),
+        )
+
     # ------------------------------------------------------------------
     # Area switching
     # ------------------------------------------------------------------
@@ -526,7 +536,7 @@ class SetupDialog(QtWidgets.QDialog):
                     self.interface_widget.from_dict(profile.data or {})
         else:
             self._current_interface = self._iface_repo.new_profile()
-            self.interface_widget.load_default_tnc_profile()
+            self.interface_widget.load_default_profile("TNC_TAPR")      # #174 260831
 
         self._dirty = False
 
@@ -798,15 +808,14 @@ class SetupDialog(QtWidgets.QDialog):
 
         elif area == "Interface":
             self._current_interface = self._iface_repo.new_profile()
-            self.interface_widget.from_dict(
-                self._current_interface.data or {}
-            )
+            self.interface_widget.load_default_profile("TNC_TAPR")      # #174 260831
             self.interface_widget.edInterfaceName.setFocus()
 
         elif area == "BBS":
             self._current_bbs = self._bbs_repo.new_profile()
             self.bbs_widget.load_profile(self._current_bbs)
             self.bbs_widget.ed_friendly_name.setFocus()
+
 
         elif area == "BBS Logon":
             self._current_bbs_logon = self._bbs_logon_repo.new_profile()
@@ -966,18 +975,22 @@ class SetupDialog(QtWidgets.QDialog):
             self._bbs_repo.delete(profile_id)
             self._current_bbs = None
             self._refresh_bbs_list(select_active=True)
+
         elif area == "Interface":
             self._iface_repo.delete(profile_id)
             self._current_interface = None
             self._refresh_interface_list(select_active=True)
+
         elif area == "Station ID":
             self._station_repo.delete(profile_id)
             self._current_station = None
             self._refresh_station_list(select_active=True)
+
         elif area == "Tactical ID":
             self._tactical_repo.delete(profile_id)
             self._current_tactical = None
             self._refresh_tactical_list(select_active=True)
+
         elif area == "BBS Logon":
             self._bbs_logon_repo.delete(profile_id)
             self._current_bbs_logon = None
@@ -1054,8 +1067,13 @@ class SetupDialog(QtWidgets.QDialog):
             )
             return
 
-        elif area == "BBS":
+        elif area == "BBS":                                 # #176, 260901
+            missing = self.bbs_widget.validate_required_fields()
+            if missing:
+                self._show_required_fields(missing)
+                return
             profile = self.bbs_widget.apply_to_profile(self._current_bbs)
+
             try:
                 profile = self._bbs_repo.save(profile)
             except ValueError as exc:
@@ -1070,8 +1088,14 @@ class SetupDialog(QtWidgets.QDialog):
             self._select_config_id(saved_id)              # <<< ADD THIS
             self._update_node_path_summary(saved_id)      # <<< ADD THIS
 
-        elif area == "Interface":
+        elif area == "Interface":                           # #176, 260901
+            missing = self.interface_widget.validate_required_fields()
+            if missing:
+                self._show_required_fields(missing)
+                return
+
             data = self.interface_widget.to_dict()
+
             if self._current_interface is None:
                 self._current_interface = self._iface_repo.new_profile()
             self._current_interface.data = data
@@ -1089,8 +1113,15 @@ class SetupDialog(QtWidgets.QDialog):
             self._refresh_interface_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
-        elif area == "Station ID":
+        elif area == "Station ID":                          # #176, 260901
+            missing = self.station_widget.validate_required_fields()
+            if missing:
+                self._show_required_fields(missing)
+                return
+
             if self._current_station is None:
+                self._current_station = self._station_repo.new_profile()
+
                 self._current_station = self._station_repo.new_profile()
             profile = self.station_widget.apply_to_profile(self._current_station)
             try:
@@ -1104,8 +1135,15 @@ class SetupDialog(QtWidgets.QDialog):
             self._refresh_station_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
-        elif area == "Tactical ID":
+        elif area == "Tactical ID":                          # #176, 260901
+            missing = self.tactical_widget.validate_required_fields()
+            if missing:
+                self._show_required_fields(missing)
+                return
+
             if self._current_tactical is None:
+                self._current_tactical = self._tactical_repo.new_profile()
+
                 self._current_tactical = self._tactical_repo.new_profile()
             profile = self.tactical_widget.apply_to_profile(self._current_tactical)
             try:
@@ -1119,8 +1157,15 @@ class SetupDialog(QtWidgets.QDialog):
             self._refresh_tactical_list(select_active=False)
             self._select_config_id(saved_id)              # <<< ADD THIS
 
-        elif area == "BBS Logon":
+        elif area == "BBS Logon":                               # #176, 260901
+            missing = self.bbs_logon_widget.validate_required_fields()
+            if missing:
+                self._show_required_fields(missing)
+                return
+
             if self._current_bbs_logon is None:
+                self._current_bbs_logon = self._bbs_logon_repo.new_profile()
+
                 self._current_bbs_logon = self._bbs_logon_repo.new_profile()
             profile = self.bbs_logon_widget.apply_to_profile(self._current_bbs_logon)
             try:

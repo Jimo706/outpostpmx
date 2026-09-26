@@ -8,8 +8,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from dialogs.form_entry_window import FormEntryWindow
 
-from services.form_transport import parse_form_body
-from services.form_definition_loader import FormRegistry
+from services.form_transport import parse_form_body, render_form_body       # #194, 260919
+from services.form_definition_loader import FormDefinition, FormRegistry    # #194, 260919
 
 from services.message_service import MessageService, MessagePayload, TransportMeta
 from services.message_print_service import MessagePrintService, PrintableMessage
@@ -51,6 +51,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
     replied = QtCore.Signal(int)
     replied_all = QtCore.Signal(int)
     forwarded = QtCore.Signal(int)
+    useFormAsNewRequested = QtCore.Signal(object, dict)       # #192, 260917
 
     def __init__(
         self,
@@ -64,6 +65,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         printable_message: Optional[PrintableMessage] = None,
         system_config=None,
         form_registry: FormRegistry | None = None,
+        allocated_mid: str = "",                    # #190, 260915
         parent=None,
     ) -> None:        
         super().__init__(parent)
@@ -75,6 +77,7 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self._printable_message = printable_message
         self._system_config = system_config
         self._form_registry = form_registry
+        self._allocated_mid = (allocated_mid or "").strip()     # #190, 260915
 
         self.setObjectName("MessageFormWindow")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
@@ -185,6 +188,8 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actForward = QtGui.QAction("&Forward", self)
         self.actForward.setShortcut("Ctrl+F")
         self.actViewForm = QtGui.QAction("&View Form", self)        # #164
+        self.actEditForm = QtGui.QAction("&Edit Form", self)        # #194, 260919
+        self.actUseFormAsNew = QtGui.QAction("Use Form as &New Message",self)     
         self.actDelete = QtGui.QAction("&Delete", self)
 
         self.actTypePrivate = QtGui.QAction("Set as Private", self)
@@ -226,6 +231,8 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         self.actReplyAll.triggered.connect(lambda: self._on_reply(reply_all=True))
         self.actForward.triggered.connect(self._on_forward)
         self.actViewForm.triggered.connect(self._on_view_form)      # #164
+        self.actEditForm.triggered.connect(self._on_edit_form)      # #194, 260919
+        self.actUseFormAsNew.triggered.connect(self._on_use_form_as_new)    # #192
         self.actDelete.triggered.connect(self._on_delete)
 
         self.actResendSameMid.triggered.connect(self._on_resend_same_mid)
@@ -269,9 +276,12 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         m_edit.addAction(self.actSelectAll)
 
         m_actions = mb.addMenu("&Actions")
-        m_actions.addAction(self.actViewForm)       # #164
-        m_actions.addSeparator()                    # #164
+        m_actions.addAction(self.actViewForm)           # #164
+        m_actions.addAction(self.actEditForm)           # #194, 260919
+        m_actions.addAction(self.actUseFormAsNew)       # #192
+        m_actions.addSeparator()
         m_actions.addAction(self.actReply)
+
         m_actions.addAction(self.actReplyAll)
         m_actions.addAction(self.actForward)
         m_actions.addAction(self.actDelete)
@@ -354,7 +364,15 @@ class MessageFormWindow(QtWidgets.QMainWindow):
 
         # Message actions
         # Structured forms
-        self.actViewForm.setEnabled(is_open and self._can_view_form())
+        can_use_form = is_open and self._can_view_form()
+
+        self.actViewForm.setEnabled(can_use_form)
+        self.actEditForm.setEnabled(                        # #194, 260919
+            is_new
+            and self._message_id is not None
+            and self._can_view_form()
+        )
+        self.actUseFormAsNew.setEnabled(can_use_form)       # #192
         self.actReply.setEnabled(is_open)
         self.actReplyAll.setEnabled(is_open and self._has_reply_all_targets())
         self.actForward.setEnabled(is_open)
@@ -700,11 +718,23 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         if settings.use_default_destination:
             default_to = settings.default_destination or ""
 
+        # #190, 260915
         subject_prefix = ""
-        if settings.add_mid_to_outbound:
+
+        if self._allocated_mid:
+            # Form explicitly requested $MSG_ID.
+            # Reuse the MID already allocated for the form.
+            subject_prefix = self._allocated_mid
+
+        elif settings.add_mid_to_outbound:
+            # Normal message behavior.
             prefix = self._active_msg_id_prefix()
             if prefix:
-                subject_prefix = allocate_next_mid(self._config, prefix)
+                subject_prefix = allocate_next_mid(
+                    self._config,
+                    prefix,
+                )
+
 
         self.editor.apply_compose_defaults(
             default_to=default_to,
@@ -869,6 +899,160 @@ class MessageFormWindow(QtWidgets.QMainWindow):
         )
 
         dlg.exec()
+
+
+    def _on_edit_form(self) -> None:
+        parsed = self._parsed_form_message()
+
+        if parsed is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Edit Form",
+                "This message does not contain an OutpostX form.",
+            )
+            return
+
+        if parsed.form is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Edit Form",
+                "This message contains an OutpostX form, but the matching "
+                "form definition is not installed or the version does not match.",
+            )
+            return
+
+        dlg = FormEntryWindow(
+            form=parsed.form,
+            values=parsed.values,
+            read_only=False,
+            submit_label="Update Message",
+            parent=self,
+        )
+        dlg.messageRequested.connect(self._on_form_updated)
+        dlg.exec()
+
+
+    def _resolve_form_subject(
+        self,
+        form: FormDefinition,
+        values: dict,
+    ) -> str:
+        """
+        Resolve the Outpost packet Subject from the OPXFORM definition.
+        """
+        subject_def = form.input.get("subject")
+
+        if not isinstance(subject_def, dict):
+            return str(
+                values.get("subject", "") or ""
+            ).strip()
+
+        source = str(
+            subject_def.get("source", "") or ""
+        ).strip().lower()
+
+        value = str(
+            subject_def.get("value", "") or ""
+        ).strip()
+
+        if source == "field":
+            return str(
+                values.get(value, "") or ""
+            ).strip()
+
+        if source == "fixed":
+            return value
+
+        return ""
+
+
+    def _on_form_updated(
+        self,
+        form: FormDefinition,
+        values: dict,
+    ) -> None:
+        """
+        Update this existing message from edited OPXFORM values.
+
+        This changes the contents of the current Message Form only.
+        The existing message identity and MID are preserved.
+        """
+
+        # Resolve the old form subject before replacing the message body.
+        old_form_subject = ""
+        parsed = self._parsed_form_message()
+
+        if parsed is not None and parsed.form is not None:
+            old_form_subject = self._resolve_form_subject(
+                parsed.form,
+                parsed.values,
+            )
+
+        try:
+            body = render_form_body(form, values)
+        except Exception as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Edit Form",
+                f"Could not update the form message:\n\n{exc}",
+            )
+            return
+
+        # Resolve the newly edited form subject.
+        new_form_subject = self._resolve_form_subject(form, values)
+
+        # Preserve anything preceding the old form subject, such as
+        # the existing Outpost MID prefix.
+        current_subject = self.editor.edSubject.text().strip()
+
+        if (
+            old_form_subject
+            and current_subject.endswith(old_form_subject)
+        ):
+            subject_prefix = current_subject[:-len(old_form_subject)]
+            new_subject = f"{subject_prefix}{new_form_subject}"
+        else:
+            new_subject = new_form_subject
+
+        self.editor.txtBody.setPlainText(body)
+        self.editor.edSubject.setText(new_subject)
+
+        self._update_statusbar()
+
+
+    def _on_use_form_as_new(self) -> None:
+        """
+        #192, 260917
+        Request creation of a new form message using values recovered
+        from the currently displayed OPXFORM message.
+
+        The source message is never modified.
+        """
+        parsed = self._parsed_form_message()
+
+        if parsed is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Use Form as New Message",
+                "This message does not contain an OutpostX form.",
+            )
+            return
+
+        if parsed.form is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Use Form as New Message",
+                "The matching form definition is not installed "
+                "or its version does not match.\n\n"
+                f"Form ID: {parsed.form_id}\n"
+                f"Form Version: {parsed.form_version}",
+            )
+            return
+
+        self.useFormAsNewRequested.emit(
+            parsed.form,
+            dict(parsed.values),
+        )
 
 
     # ------------------------------------------------------------------

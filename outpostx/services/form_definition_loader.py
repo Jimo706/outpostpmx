@@ -10,12 +10,15 @@ from typing import Any
 
 SUPPORTED_OPXFORM_VERSION = 1
 
+# #190, 260912, added radio (radio button) and select (dropdown list)
 SUPPORTED_FIELD_TYPES = {
     "text",
     "multiline",
     "date",
     "time",
     "checkbox",
+    "radio",
+    "select",
     "section",
 }
 
@@ -269,6 +272,60 @@ class FormRegistry:
                 )
 
             seen_ids.add(field_id)
+
+            # ----------------------------------------------------------
+            # #190, 260912
+            # Choice options
+            #
+            # radio and select fields must define one or more choices.  Each option is:
+            #     {
+            #         "value": "<stored/wire value>",
+            #         "label": "<displayed value>"
+            #     }
+            # Option values must be unique within the field.
+            # ----------------------------------------------------------
+            if field_type in ("radio", "select"):
+                options = field.get("options")
+
+                if not isinstance(options, list) or not options:
+                    raise FormDefinitionError(
+                        f"Field '{field_id}' of type '{field_type}' "
+                        "must define a non-empty 'options' array."
+                    )
+
+                seen_option_values: set[str] = set()
+
+                for option_index, option in enumerate(options, start=1):
+                    if not isinstance(option, dict):
+                        raise FormDefinitionError(
+                            f"Field '{field_id}' option #{option_index} "
+                            "must be a JSON object."
+                        )
+
+                    value = option.get("value")
+                    label = option.get("label")
+
+                    if not isinstance(value, str) or not value.strip():
+                        raise FormDefinitionError(
+                            f"Field '{field_id}' option #{option_index} "
+                            "must define a non-empty 'value'."
+                        )
+
+                    if not isinstance(label, str) or not label.strip():
+                        raise FormDefinitionError(
+                            f"Field '{field_id}' option #{option_index} "
+                            "must define a non-empty 'label'."
+                        )
+
+                    value = value.strip()
+
+                    if value in seen_option_values:
+                        raise FormDefinitionError(
+                            f"Field '{field_id}' has duplicate option "
+                            f"value '{value}'."
+                        )
+
+                    seen_option_values.add(value)
 
             # ----------------------------------------------------------
             # Wire ID

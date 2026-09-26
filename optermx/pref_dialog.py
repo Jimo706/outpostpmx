@@ -61,8 +61,9 @@ PrefDialog(QDialog, Ui_prefDialog)
 #
 # ---------------------------------------------------------------------
 
+from PySide6.QtSerialPort import QSerialPortInfo
+import sys
 
-import serial.tools.list_ports             # required
 # 260522: migrate from PyQt5 to PySide6    
 from PySide6.QtWidgets import QDialog
 from PySide6.QtGui import QIcon
@@ -131,6 +132,62 @@ def to_bool(value):
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "yes", "on")
     return bool(value)
+
+
+# #189, mirrors #176 for OutpostX
+# outside of the class
+def list_serial_ports() -> list[str]:
+    """
+    Return serial ports currently recognized by the operating system.
+
+        Depending on the platform, this will return (example):
+        Windows:   COM3
+        Linux:     /dev/ttyUSB0
+        macOS:     /dev/cu.... or /dev/tty....
+    """
+    ports: list[str] = []
+
+    for info in QSerialPortInfo.availablePorts():
+
+        # --- Windows handler ---
+        if sys.platform.startswith("win"):
+            port = info.portName().strip()
+
+        # --- Linux handler ---
+        elif sys.platform.startswith("linux"):
+            # Linux may expose many legacy ttyS devices even when
+            # no corresponding serial hardware is actually present.
+            has_identity = (
+                bool(info.description().strip())
+                or bool(info.manufacturer().strip())
+                or bool(info.serialNumber().strip())
+                or info.hasVendorIdentifier()
+                or info.hasProductIdentifier()
+            )
+
+            if not has_identity:
+                continue
+
+            port = info.systemLocation().strip()
+
+        # --- Mac OS handler ---
+        elif sys.platform.startswith("darwin"):
+            port = info.systemLocation().strip()
+
+            # macOS exposes both call-out (/dev/cu.*) and call-in
+            # (/dev/tty.*) devices.  OutpostX initiates the serial
+            # connection, so present the call-out devices.
+            if not port.startswith("/dev/cu."):
+                continue
+
+        else:
+            port = info.systemLocation().strip()
+
+        if port:
+            ports.append(port)
+
+    return sorted(set(ports))
+
 
 
 class PrefDialog(QDialog, Ui_prefDialog):
@@ -297,21 +354,18 @@ class PrefDialog(QDialog, Ui_prefDialog):
 
         self.tabWidget.setCurrentIndex(0)        # open to tab #0 Serial
 
-
     def _load_com_ports(self):
         """
-        Populate the COM port combo box with currently available ports.
-
-        Notes
-        -----
-        Uses `serial.tools.list_ports.comports()` to discover available
-        serial devices and adds the `.device` value for each to the
-        `cboComPort` combo box.
+        Populate the Serial Port combo box with currently available
+        external serial devices appropriate for OpTermX use.
         """
-        ports = serial.tools.list_ports.comports()
-        for p in ports:
-            self.cboComPort.addItem(p.device) # Or f"{p.device} ({p.description})" for more detail
+        # #189, mirrors #176 for OutpostX
+        ports = list_serial_ports()
 
+        if ports:
+            self.cboComPort.addItems(ports)
+        else:
+            self.cboComPort.addItem("NONE")
 
     def _on_accept(self):
         """
@@ -322,7 +376,13 @@ class PrefDialog(QDialog, Ui_prefDialog):
         and saves the configuration to disk.
         """
         # ini.set('serial', 'port', port)
-        self.ini.set('serial', 'port', self.cboComPort.currentText())
+        # 189, only load actual ports.  If none, save as blank.
+        serial_port = self.cboComPort.currentText().strip()
+
+        if serial_port == "NONE":
+            serial_port = ""
+
+        self.ini.set('serial', 'port', serial_port)
         self.ini.set('serial', 'baudrate', self.cboBaudRate.currentText())
         self.ini.set('serial', 'databits', self.cboDataBits.currentText())
         self.ini.set('serial', 'stopbits', self.cboStopBits.currentText())

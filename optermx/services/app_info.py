@@ -10,7 +10,7 @@ class AppInfo:
     APP_NAME = "Optermx"
     TITLE = "Optermx"
 
-    APP_VERSION = "26.09.2"         # CalVer + release-in-month
-    APP_MARKER = "260905.1211"      # optional: can be injected during packaging
+    APP_VERSION = "26.09.4"         # CalVer + release-in-month
+    APP_MARKER = "260925.1948"      # optional: can be injected during packaging
 
     APP_WEBSITE = "https://outpostpm.org"

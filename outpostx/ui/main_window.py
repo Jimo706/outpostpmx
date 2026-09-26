@@ -38,6 +38,7 @@ from services.form_definition_loader import (           # #164
     FormRegistry,
 )
 from services.form_transport import render_form_body    # #164
+from services.form_substitutions import build_form_substitutions   # #190, 260915
 from services.tool_config import (                      # #171
     ToolConfigError,
     ToolDefinition,
@@ -986,14 +987,44 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_form_selected(self, form: FormDefinition) -> None:
         """ #164, 260821
-        Open the generic OPXFORM entry window.
+        Open a new generic OPXFORM entry window.
         """
+        self._open_form_entry(form)
+
+
+    def _open_form_entry(
+        self,
+        form: FormDefinition,
+        values: dict | None = None,
+    ) -> None:
+        """ #192, 260917
+        Open the generic OPXFORM entry window.
+
+        If values is supplied, use those values to pre-populate the
+        form. Runtime substitutions are always generated fresh.
+        """
+        substitutions = build_form_substitutions(
+            form,
+            config=self.config,
+            system_config=self.system_config,
+        )
+
         dlg = FormEntryWindow(
             form=form,
+            values=values,
+            substitutions=substitutions,
             parent=self,
         )
 
-        dlg.messageRequested.connect(self._on_form_message_requested)
+        dlg.messageRequested.connect(
+            lambda f, form_values, substitutions=substitutions:
+                self._on_form_message_requested(
+                    f,
+                    form_values,
+                    substitutions.get("$MSG_ID", ""),
+                )
+        )
+
         dlg.exec()
 
 
@@ -1043,10 +1074,11 @@ class MainWindow(QtWidgets.QMainWindow):
         return ""
 
 
-    def _on_form_message_requested(
+    def _on_form_message_requested(                 # #190, 260915
         self,
         form: FormDefinition,
         values: dict,
+        allocated_mid: str = "",
     ) -> None:
         """
         Convert completed OPXFORM data into a normal Outpost message
@@ -1100,6 +1132,8 @@ class MainWindow(QtWidgets.QMainWindow):
             system_config=self.system_config,
             config=self.config,
             payload=payload,
+            allocated_mid=allocated_mid,
+            form_registry=self.form_registry,           # #194, 260919
             parent=self,
         )
 
@@ -1294,6 +1328,8 @@ class MainWindow(QtWidgets.QMainWindow):
         win.replied_all.connect(self._open_compose_with_id)
         win.forwarded.connect(self._open_compose_with_id)
 
+        win.useFormAsNewRequested.connect(self._on_use_form_as_new)    # #192
+
         self._track_message_form(win)
         win.show()
 
@@ -1436,6 +1472,7 @@ class MainWindow(QtWidgets.QMainWindow):
             message_id=msgidx,
             payload=payload,
             transport=transport,
+            form_registry=self.form_registry,           # #193, 260916
             parent=self,
         )
 
@@ -1528,8 +1565,47 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg.exec()
 
 
+    # ------------------------------------------------------------------
+    # Form Handling Methods
+    # ------------------------------------------------------------------
+    def _on_use_form_as_new(
+        self,
+        form: FormDefinition,
+        values: dict,
+    ) -> None:
+        """ #192, 260917
+        Open an existing OPXFORM message as the starting point for a
+        new form message.
+
+        Ordinary field values are copied from the source message.
+        Fields whose form definition specifies a runtime substitution
+        (a default beginning with '$') are not copied; their defaults
+        are regenerated when the new FormEntryWindow is opened.
+        """
+        copied_values = dict(values)
+
+        fields = form.input.get("fields", []) or []
+
+        for field in fields:
+            default = field.get("default")
+
+            if (
+                isinstance(default, str)
+                and default.startswith("$")
+            ):
+                field_id = str(field.get("id", "")).strip()
+
+                if field_id:
+                    copied_values.pop(field_id, None)
+
+        self._open_form_entry(
+            form,
+            values=copied_values,
+        )
+
+
     # ------------------------
-    # Message Form Helper 
+    # Message Form Helpers
     # ------------------------
     def _track_message_form(self, win: QtWidgets.QMainWindow) -> None:
         """
@@ -1940,3 +2016,5 @@ class MainWindow(QtWidgets.QMainWindow):
         self.folderTree.saveState()
         self.config.save_window_state(self, "MainWindow")
         super().closeEvent(e)
+
+

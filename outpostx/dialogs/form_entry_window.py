@@ -32,18 +32,22 @@ class FormEntryWindow(QtWidgets.QDialog):
 
     messageRequested = QtCore.Signal(object, object)    # #164
 
+
     def __init__(
         self,
         form: FormDefinition,
         values: dict[str, object] | None = None,
         read_only: bool = False,
+        substitutions: dict[str, str] | None = None,
+        submit_label: str = "Create Message",          # #194, 260919
         parent: QtWidgets.QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-
         self.form = form
         self._initial_values = values or {}
         self._read_only = read_only
+        self._substitutions = substitutions or {}       # #190, 260915
+        self._submit_label = submit_label               # #194, 260919
         self._widgets: dict[str, QtWidgets.QWidget] = {}
 
         self.setWindowTitle(form.name)
@@ -171,7 +175,7 @@ class FormEntryWindow(QtWidgets.QDialog):
 
         self.btnReload = QtWidgets.QPushButton("Reload Definition")
         self.btnPdf = QtWidgets.QPushButton("Show in PDF")  # #164
-        self.btnCreate = QtWidgets.QPushButton("Create Message")
+        self.btnCreate = QtWidgets.QPushButton(self._submit_label)
         self.btnClose = QtWidgets.QPushButton("Close")
 
         # PDF rendering is optional. Forms such as NTS may have no
@@ -187,7 +191,7 @@ class FormEntryWindow(QtWidgets.QDialog):
 
         self.btnReload.clicked.connect(self._on_reload_definition)
         self.btnPdf.clicked.connect(self._on_show_pdf)      # #164
-        self.btnCreate.clicked.connect(self._on_create)
+        self.btnCreate.clicked.connect(self._on_create)     # #194, 260919
         self.btnClose.clicked.connect(self.reject)
 
 
@@ -215,6 +219,29 @@ class FormEntryWindow(QtWidgets.QDialog):
 
             elif isinstance(widget, QtWidgets.QCheckBox):
                 widget.setChecked(bool(value))
+
+
+            elif isinstance(widget, QtWidgets.QComboBox):
+                text = "" if value is None else str(value)
+
+                index = widget.findData(text)
+
+                if index >= 0:
+                    widget.setCurrentIndex(index)
+                else:
+                    widget.setCurrentIndex(0)
+
+
+            elif hasattr(widget, "_opx_button_group"):
+                text = "" if value is None else str(value)
+
+                button_group = widget._opx_button_group
+
+                for button in button_group.buttons():
+                    button.setChecked(
+                        button.property("opx_value") == text
+                    )
+
 
             elif isinstance(widget, QtWidgets.QDateEdit):
                 text = "" if value is None else str(value)
@@ -272,6 +299,16 @@ class FormEntryWindow(QtWidgets.QDialog):
 
             elif isinstance(widget, QtWidgets.QCheckBox):
                 widget.setEnabled(False)
+
+            elif isinstance(widget, QtWidgets.QComboBox):
+                widget.setEnabled(False)
+
+            elif hasattr(widget, "_opx_button_group"):
+                button_group = widget._opx_button_group
+
+                for button in button_group.buttons():
+                    button.setEnabled(False)
+
 
         # Received forms cannot create another packet message.
         self.btnCreate.setVisible(False)
@@ -344,16 +381,20 @@ class FormEntryWindow(QtWidgets.QDialog):
             widget = QtWidgets.QDateEdit()
             widget.setCalendarPopup(True)
 
-            if default == "$CURRENT_DATE":
-                widget.setDate(QtCore.QDate.currentDate())
+            default = self._resolve_default(field.get("default"))
+
+            if default:
+                date = QtCore.QDate.fromString(
+                    default,
+                    "yyyy-MM-dd",
+                )
+
+                if date.isValid():
+                    widget.setDate(date)
+                else:
+                    widget.setDate(QtCore.QDate.currentDate())
             else:
                 widget.setDate(QtCore.QDate.currentDate())
-
-            # Let the operating-system locale control presentation.
-            locale = QtCore.QLocale.system()
-            widget.setDisplayFormat(
-                locale.dateFormat(QtCore.QLocale.FormatType.ShortFormat)
-            )
 
             return widget
 
@@ -361,13 +402,20 @@ class FormEntryWindow(QtWidgets.QDialog):
         if field_type == "time":
             widget = QtWidgets.QTimeEdit()
 
-            if default == "$CURRENT_TIME":
-                widget.setTime(QtCore.QTime.currentTime())
+            default = self._resolve_default(field.get("default"))
+
+            if default:
+                time = QtCore.QTime.fromString(
+                    default,
+                    "HH:mm",
+                )
+
+                if time.isValid():
+                    widget.setTime(time)
+                else:
+                    widget.setTime(QtCore.QTime.currentTime())
             else:
                 widget.setTime(QtCore.QTime.currentTime())
-
-            # OPXFORM/EMCOMM convention: local 24-hour time.
-            widget.setDisplayFormat("HH:mm")
 
             return widget
 
@@ -377,6 +425,70 @@ class FormEntryWindow(QtWidgets.QDialog):
 
             if isinstance(default, bool):
                 widget.setChecked(default)
+
+            return widget
+
+
+        if field_type == "select":
+            widget = QtWidgets.QComboBox()
+
+            # Blank entry means "no selection".
+            widget.addItem("", "")
+
+            for option in field.get("options", []) or []:
+                label = str(option.get("label", "") or "").strip()
+                value = str(option.get("value", "") or "").strip()
+
+                widget.addItem(label, value)
+
+            if default is not None:
+                default_value = self._resolve_default(default)
+
+                if default_value:
+                    index = widget.findData(default_value)
+
+                    if index >= 0:
+                        widget.setCurrentIndex(index)
+
+            return widget
+
+
+        if field_type == "radio":
+            widget = QtWidgets.QWidget()
+
+            layout = QtWidgets.QHBoxLayout(widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(16)
+
+            button_group = QtWidgets.QButtonGroup(widget)
+            button_group.setExclusive(True)
+
+            for option in field.get("options", []) or []:
+                label = str(option.get("label", "") or "").strip()
+                value = str(option.get("value", "") or "").strip()
+
+                button = QtWidgets.QRadioButton(label)
+
+                # Store the OPXFORM value on the button.
+                button.setProperty("opx_value", value)
+
+                button_group.addButton(button)
+                layout.addWidget(button)
+
+            layout.addStretch(1)
+
+            # Keep the QButtonGroup alive and make it available later.
+            # widget.setProperty("opx_button_group", button_group)
+            widget._opx_button_group = button_group
+
+            if default is not None:
+                default_value = self._resolve_default(default)
+
+                if default_value:
+                    for button in button_group.buttons():
+                        if button.property("opx_value") == default_value:
+                            button.setChecked(True)
+                            break
 
             return widget
 
@@ -393,10 +505,11 @@ class FormEntryWindow(QtWidgets.QDialog):
     # ------------------------------------------------------------------
     def _resolve_default(self, value) -> str:
         """
-        Resolve OPXFORM system-default tokens.
+        # #190, 260915
+        Resolve an OPXFORM field default.
 
-        Date/time widgets handle their tokens directly.
-        Unknown tokens remain blank for now.
+        Runtime substitution variables are supplied by the dialog owner.
+        Unknown substitution variables resolve to blank.
         """
         if value is None:
             return ""
@@ -404,10 +517,11 @@ class FormEntryWindow(QtWidgets.QDialog):
         value = str(value)
 
         if value.startswith("$"):
-            return ""
+            return str(
+                self._substitutions.get(value, "") or ""
+            )
 
         return value
-
 
     # ------------------------------------------------------------------
     # Data extraction
@@ -451,6 +565,27 @@ class FormEntryWindow(QtWidgets.QDialog):
 
             elif isinstance(widget, QtWidgets.QCheckBox):
                 value = widget.isChecked()
+
+
+            elif isinstance(widget, QtWidgets.QComboBox):
+                value = widget.currentData()
+
+                if value is None:
+                    value = ""
+
+                value = str(value).strip()
+
+
+            elif hasattr(widget, "_opx_button_group"):
+                button_group = widget._opx_button_group
+                checked = button_group.checkedButton()
+
+                if checked is None:
+                    value = ""
+                else:
+                    value = str(
+                        checked.property("opx_value") or ""
+                    ).strip()
 
             else:
                 value = ""
@@ -558,6 +693,7 @@ class FormEntryWindow(QtWidgets.QDialog):
                 return
 
         values = self.values()
+        ### DEBUG: print("PDF VALUES:", self.values())
 
         try:
             pdf_path = render_form_pdf(

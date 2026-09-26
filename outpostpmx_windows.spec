@@ -1,6 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 # 
 # to RUN:
+#   (venv)> cd C:\dev\outpostpmx\outpostx
+#   (venv)> pyinstaller --onefile --clean --name pdf_coordinate_grid tools\pdf_coordinate_grid.py
+#   (Copy dist\pdf_coodinate_grid to data\tools)
+#
 #   (venv)> cd C:\dev\outpostpmx
 #   (venv)> python -m PyInstaller -y --clean outpostpmx_windows.spec
 # 
@@ -20,6 +24,7 @@ added_files = [
          (str(outpostx_root / "data" / "bbs_specs"), "data/bbs_specs"),
          (str(outpostx_root / "data" / "sounds"), "data/sounds"),
          (str(outpostx_root / "data" / "forms"), "data/forms"),
+         (str(outpostx_root / "data" / "tools"), "data/tools"),      # #191 
          (str(outpostx_root / "data" / "tools.json"), "data"),       # #171
          ]
 

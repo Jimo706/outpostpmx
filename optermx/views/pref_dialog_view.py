@@ -113,12 +113,17 @@ class Ui_prefDialog(object):
         self.cboFlowControl.setObjectName("cboFlowControl")
         self.horizontalLayout_6.addWidget(self.cboFlowControl)
         self.verticalLayout_3.addLayout(self.horizontalLayout_6)
-        self.groupBox_4 = QtWidgets.QGroupBox(self.tabTelnet)
-        self.groupBox_4.setGeometry(QtCore.QRect(270, 50, 191, 111))
-        self.groupBox_4.setObjectName("groupBox_4")
-        self.pushButtonTest = QtWidgets.QPushButton(self.groupBox_4)
-        self.pushButtonTest.setGeometry(QtCore.QRect(30, 20, 111, 24))
-        self.pushButtonTest.setObjectName("pushButtonTest")
+
+        ### #186, Deprecated 
+        ### self.groupBox_4 = QtWidgets.QGroupBox(self.tabTelnet)
+        ### self.groupBox_4.setGeometry(QtCore.QRect(270, 50, 191, 111))
+        ### self.groupBox_4.setObjectName("groupBox_4")
+
+        ### #186, Deprecated 
+        ### self.pushButtonTest = QtWidgets.QPushButton(self.groupBox_4)
+        ### self.pushButtonTest.setGeometry(QtCore.QRect(30, 20, 111, 24))
+        ### self.pushButtonTest.setObjectName("pushButtonTest")
+
         self.layoutWidget = QtWidgets.QWidget(self.tabTelnet)
         self.layoutWidget.setGeometry(QtCore.QRect(20, 10, 225, 29))
         self.layoutWidget.setObjectName("layoutWidget")
@@ -185,24 +190,31 @@ class Ui_prefDialog(object):
         self.lineEditTelnetTimeout.setObjectName("lineEditTelnetTimeout")
         self.horizontalLayout_9.addWidget(self.lineEditTelnetTimeout)
         self.verticalLayout_2.addLayout(self.horizontalLayout_9)
-        self.groupBox_5 = QtWidgets.QGroupBox(self.tabSerial)
-        self.groupBox_5.setGeometry(QtCore.QRect(270, 50, 241, 131))
-        self.groupBox_5.setObjectName("groupBox_5")
-        self.layoutWidget1 = QtWidgets.QWidget(self.groupBox_5)
-        self.layoutWidget1.setGeometry(QtCore.QRect(20, 30, 215, 30))
-        self.layoutWidget1.setObjectName("layoutWidget1")
-        self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.layoutWidget1)
-        self.horizontalLayout_13.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
-        self.label_16 = QtWidgets.QLabel(self.layoutWidget1)
-        font = QtGui.QFont()
-        font.setPointSize(11)
-        self.label_16.setFont(font)
-        self.label_16.setObjectName("label_16")
-        self.horizontalLayout_13.addWidget(self.label_16)
-        self.cboTermType = QtWidgets.QComboBox(self.layoutWidget1)
-        self.cboTermType.setObjectName("cboTermType")
-        self.horizontalLayout_13.addWidget(self.cboTermType)
+
+        # ## #187, Deprecated 
+        # ## self.groupBox_5 = QtWidgets.QGroupBox(self.tabSerial)
+        # ## self.groupBox_5.setGeometry(QtCore.QRect(270, 50, 241, 131))
+        # ## self.groupBox_5.setObjectName("groupBox_5")
+
+        # ## self.layoutWidget1 = QtWidgets.QWidget(self.groupBox_5)
+        # ## self.layoutWidget1.setGeometry(QtCore.QRect(20, 30, 215, 30))
+        # ## self.layoutWidget1.setObjectName("layoutWidget1")
+
+        # ## self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.layoutWidget1)
+        # ## self.horizontalLayout_13.setContentsMargins(0, 0, 0, 0)
+        # ## self.horizontalLayout_13.setObjectName("horizontalLayout_13")
+
+        # ## self.label_16 = QtWidgets.QLabel(self.layoutWidget1)
+        # ## font = QtGui.QFont()
+        # ## font.setPointSize(11)
+        # ## self.label_16.setFont(font)
+        # ## self.label_16.setObjectName("label_16")
+        # ## self.horizontalLayout_13.addWidget(self.label_16)
+
+        # ## self.cboTermType = QtWidgets.QComboBox(self.layoutWidget1)
+        # ## self.cboTermType.setObjectName("cboTermType")
+        # ## self.horizontalLayout_13.addWidget(self.cboTermType)
+
         self.groupBox_6 = QtWidgets.QGroupBox(self.tabSerial)
         self.groupBox_6.setGeometry(QtCore.QRect(10, 180, 281, 131))
         self.groupBox_6.setObjectName("groupBox_6")
@@ -466,16 +478,24 @@ class Ui_prefDialog(object):
         prefDialog.setTabOrder(self.cboDataBits, self.cboStopBits)
         prefDialog.setTabOrder(self.cboStopBits, self.cboParity)
         prefDialog.setTabOrder(self.cboParity, self.cboFlowControl)
-        prefDialog.setTabOrder(self.cboFlowControl, self.pushButtonTest)
-        prefDialog.setTabOrder(self.pushButtonTest, self.lineEditTelnetName)
+
+        ### #186, Deprecated 
+        ### prefDialog.setTabOrder(self.cboFlowControl, self.pushButtonTest)
+        ### prefDialog.setTabOrder(self.pushButtonTest, self.lineEditTelnetName)
+        prefDialog.setTabOrder(self.cboFlowControl, self.lineEditTelnetName) #186, added to main the tab order
+
         prefDialog.setTabOrder(self.lineEditTelnetName, self.lineEditTelnetHost)
         prefDialog.setTabOrder(self.lineEditTelnetHost, self.lineEditTelnetPort)
         prefDialog.setTabOrder(self.lineEditTelnetPort, self.lineEditTelnetTimeout)
         prefDialog.setTabOrder(self.lineEditTelnetTimeout, self.checkBoxSshReq)
         prefDialog.setTabOrder(self.checkBoxSshReq, self.lineEditSshLogin)
         prefDialog.setTabOrder(self.lineEditSshLogin, self.lineEditSshPassword)
-        prefDialog.setTabOrder(self.lineEditSshPassword, self.cboTermType)
-        prefDialog.setTabOrder(self.cboTermType, self.lineEditAgwpeHost)
+
+        # ## #187, Deprecated 
+        # ## prefDialog.setTabOrder(self.lineEditSshPassword, self.cboTermType)
+        # ## prefDialog.setTabOrder(self.cboTermType, self.lineEditAgwpeHost)
+        prefDialog.setTabOrder(self.lineEditSshPassword, self.lineEditAgwpeHost) #187, added to main the tab order
+
         prefDialog.setTabOrder(self.lineEditAgwpeHost, self.lineEditAgwpePort)
         prefDialog.setTabOrder(self.lineEditAgwpePort, self.lineEditAgwpeTimeout)
         prefDialog.setTabOrder(self.lineEditAgwpeTimeout, self.lineEditAgwpeFmCall)
@@ -505,16 +525,22 @@ class Ui_prefDialog(object):
         self.label_4.setText(_translate("prefDialog", "Stop Bits"))
         self.label_5.setText(_translate("prefDialog", "Parity"))
         self.label_7.setText(_translate("prefDialog", "Flow Control"))
-        self.groupBox_4.setTitle(_translate("prefDialog", "Test"))
-        self.pushButtonTest.setText(_translate("prefDialog", "Open / Close"))
+
+        ### #186, Deprecated 
+        ### self.groupBox_4.setTitle(_translate("prefDialog", "Test"))
+        ### self.pushButtonTest.setText(_translate("prefDialog", "Open / Close"))
+
         self.label_6.setText(_translate("prefDialog", "Name"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabTelnet), _translate("prefDialog", "Serial"))
         self.groupBox_2.setTitle(_translate("prefDialog", "End Point"))
         self.label_10.setText(_translate("prefDialog", "Host:"))
         self.label_9.setText(_translate("prefDialog", "Port:"))
         self.label_11.setText(_translate("prefDialog", "Timeout:"))
-        self.groupBox_5.setTitle(_translate("prefDialog", "Negotiation"))
-        self.label_16.setText(_translate("prefDialog", "Terminal Type:"))
+
+        # ## #187, Deprecated 
+        # ## self.groupBox_5.setTitle(_translate("prefDialog", "Negotiation"))
+        # ## self.label_16.setText(_translate("prefDialog", "Terminal Type:"))
+
         self.groupBox_6.setTitle(_translate("prefDialog", "Mode"))
         self.checkBoxSshReq.setText(_translate("prefDialog", "SSH (requires login and pwd)"))
         self.label_17.setText(_translate("prefDialog", "Login:"))

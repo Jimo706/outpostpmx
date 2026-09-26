@@ -148,6 +148,22 @@ def _render_field(
 
     value = values.get(source_id)
 
+    # #190, 260916
+    # Optional value-specific display condition.
+    #
+    # Example:
+    #   "source_id": "handling",
+    #   "show_value": "ROUTINE"
+    #
+    # Render this PDF mapping only when the source field
+    # contains the specified value.
+    if "show_value" in mapping:
+        show_value = str(mapping.get("show_value", ""))
+
+        if str(value or "") != show_value:
+            return
+
+
     if value is None or value == "":
         return
 
@@ -156,7 +172,14 @@ def _render_field(
     prefix = str(mapping.get("prefix", "") or "")
     suffix = str(mapping.get("suffix", "") or "")
 
-    text = _pdf_value(value)
+    # #190, 260916
+    # A PDF mapping may supply literal text instead of rendering
+    # the source field value.  This is useful for marks such as
+    # radio-button selections.
+    if "text" in mapping:
+        text = str(mapping.get("text", ""))
+    else:
+        text = _pdf_value(value)
 
     if not text:
         return
@@ -293,7 +316,7 @@ def _safe_filename(text: str) -> str:
         for ch in text
     )
 
-
+"""
 def render_coordinate_grid(
     template_path: str | Path,
     output_path: str | Path,
@@ -301,7 +324,7 @@ def render_coordinate_grid(
     # spacing: int = 36,
     spacing: int = 18,
 ) -> Path:
-    """
+    ""
     Create a temporary copy of a PDF with an upper-left coordinate grid.
 
     OPXFORM coordinate convention:
@@ -312,7 +335,7 @@ def render_coordinate_grid(
 
     Default spacing:
       36 points = 0.5 inch
-    """
+    ""
     template_path = Path(template_path).expanduser().resolve()
     output_path = Path(output_path).expanduser().resolve()
 
@@ -387,3 +410,4 @@ def render_coordinate_grid(
         doc.close()
 
     return output_path
+"""

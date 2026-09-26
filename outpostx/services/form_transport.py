@@ -175,6 +175,11 @@ def parse_form_body(
             values={},
         )
 
+    # Use the same wire-label convention for inbound parsing
+    # that was used for outbound rendering.
+    transport = form.transport or {}
+    show_labels = bool(transport.get("show_labels", False))
+
     wire_to_field: dict[str, dict] = {}
 
     for field in form.input.get("fields", []) or []:
@@ -222,10 +227,12 @@ def parse_form_body(
             flush_current()
             break
 
+
+        # Identify only the wire ID here.  Do not attempt to parse
+        # the human-readable wire label with a generic regex because
+        # the label itself may contain ':' characters.
         field_match = re.match(
-            r"^(?P<wire>[A-Za-z0-9]+)"
-            r"(?:-[^:]*)?"
-            r":\s?(?P<value>.*)$",
+            r"^(?P<wire>[A-Za-z0-9]+)(?:-|:)",
             line,
         )
 
@@ -234,13 +241,22 @@ def parse_form_body(
             field = wire_to_field.get(wire_id)
 
             if field is not None:
-                flush_current()
+                # Build the exact prefix that outbound rendering uses.
+                expected_prefix = _wire_prefix(
+                    field,
+                    wire_id=wire_id,
+                    show_labels=show_labels,
+                )
 
-                current_field = field
-                current_lines = [
-                    field_match.group("value")
-                ]
-                continue
+                if line.upper().startswith(expected_prefix.upper()):
+                    flush_current()
+
+                    value = line[len(expected_prefix):].lstrip()
+
+                    current_field = field
+                    current_lines = [value]
+                    continue
+
 
         # Continuation lines belong only to multiline fields.
         if current_field is not None:

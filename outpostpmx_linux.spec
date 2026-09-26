@@ -4,6 +4,10 @@
 # outpostpmx_linux.spec
 #
 # Build with:
+#   cd ~/dev/outpostpmx/outpostx
+#   pyinstaller --onefile --clean --name pdf_coordinate_grid tools/pdf_coordinate_grid.py
+#   (Copy dist/pdf_coodinate_grid to data/tools)
+#
 #   cd ~/dev/outpostpmx
 #   python -m PyInstaller -y --clean outpostpmx_linux.spec
 #
@@ -22,6 +26,7 @@ added_files = [
     (str(outpostx_root / "data" / "bbs_specs"), "data/bbs_specs"),
     (str(outpostx_root / "data" / "sounds"), "data/sounds"),
     (str(outpostx_root / "data" / "forms"), "data/forms"),
+    (str(outpostx_root / "data" / "tools"), "data/tools"),      # #191 
     (str(outpostx_root / "data" / "tools.json"), "data"),       # #171
 ]
 

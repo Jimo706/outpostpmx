@@ -10,7 +10,7 @@ class AppInfo:
     APP_NAME = "OutpostX"
     TITLE = "OutpostX"
 
-    APP_VERSION = "26.09.4"         # CalVer + release-in-month
-    APP_MARKER = "260925.1948"      # optional: can be injected during packaging
+    APP_VERSION = "26.09.5"         # CalVer + release-in-month
+    APP_MARKER = "261001.2139"      # optional: can be injected during packaging
 
     APP_WEBSITE = "https://outpostpm.org"

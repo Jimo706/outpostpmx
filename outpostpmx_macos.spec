@@ -1,13 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-
-#
-# outpostpmx_suite_macos.spec
-#
-# Build with:
+# 
+# to RUN:
 #   source venv/bin/activate
 #   cd ~/dev/outpostpmx/outpostx
 #   pyinstaller --onefile --clean --name pdf_coordinate_grid tools/pdf_coordinate_grid.py
-#   (Copy dist/pdf_coodinate_grid to data/tools)
+#   (Copy dist\pdf_coodinate_grid --> data\tools)
 #
 #   cd ~/dev/outpostpmx
 #   python -m PyInstaller -y --clean outpostpmx_macos.spec

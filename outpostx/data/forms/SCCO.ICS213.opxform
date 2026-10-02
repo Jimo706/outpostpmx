@@ -1,0 +1,115 @@
+{
+  "opxform_version": 1,
+  "form_id": "SCCO.ICS213",
+  "form_version": 1,
+  "name": "SCCO ICS 213 General Message",
+
+  "input": {
+    "title": "SCCo ICS 213 General Message",
+
+    "subject": {
+      "source": "field",
+      "value": "subject"
+    },
+
+    "fields": [
+      { "id": "origin_msg_num",    "wire_id": "1",  "wire_label": "Origin Msg #",      "type": "text",   "default": "$MSG_ID",  "required": true },
+      { "id": "dest_msg_num",      "wire_id": "2",  "wire_label": "Destination Msg #", "type": "text",   "required": false },
+      { "id": "date",              "wire_id": "3",  "wire_label": "Date",              "type": "date",   "default": "$CURRENT_DATE", "required": true },
+      { "id": "time",              "wire_id": "4",  "wire_label": "Time",              "type": "time",   "default": "$CURRENT_TIME", "required": true },
+      { "id": "handling",          "wire_id": "5",  "wire_label": "Handling",          "type": "radio",  "required": true,
+        "options": [
+          { "value": "IMMEDIATE", "label": "Immediate" },
+          { "value": "PRIORITY",  "label": "Priority" },
+          { "value": "ROUTINE",   "label": "Routine" }
+        ] },
+
+      { "type": "section", "label": "TO"  },
+	  
+      { "id": "to_ics_position",   "wire_id": "6", "wire_label": "TO: ICS Position",   "type": "text", "required": true },
+      { "id": "to_location",       "wire_id": "7", "wire_label": "TO: Location",       "type": "text", "required": true },
+      { "id": "to_name",           "wire_id": "8", "wire_label": "TO: Name",           "type": "text", "required": false },
+      { "id": "to_contact_info",   "wire_id": "9", "wire_label": "TO: Contact Info",   "type": "text", "required": false},
+
+      { "type": "section", "label": "FROM" },
+	  
+      { "id": "from_ics_position", "wire_id": "10", "wire_label": "FROM: ICS Position","type": "text", "required": true },
+      { "id": "from_location",     "wire_id": "11", "wire_label": "FROM: Location",    "type": "text", "required": true },
+      { "id": "from_name",         "wire_id": "12", "wire_label": "FROM: Name",        "type": "text", "required": false },
+      { "id": "from_contact_info", "wire_id": "13", "wire_label": "FROM: Contact Info","type": "text", "required": false },
+
+      { "id": "take_action",       "wire_id": "14", "wire_label": "Take Action",       "type": "radio", "required": false,
+        "options": [
+          { "value": "YES", "label": "Yes" },
+          { "value": "NO",  "label": "No" }
+        ] },
+      { "id": "reply",             "wire_id": "15", "wire_label": "Reply",     "type": "radio", "required": false,
+        "options": [
+          { "value": "YES", "label": "Yes" },
+          { "value": "NO",  "label": "No" }
+        ] },
+      { "id": "reply_by",          "wire_id": "16", "wire_label": "Reply By",  "type": "text",      "hint": "Complete only when Reply is Yes", "required": false },
+      { "id": "subject",           "wire_id": "21", "wire_label": "Subject",   "type": "text",      "required": true },
+      { "id": "reference",         "wire_id": "22", "wire_label": "Reference", "type": "text",      "hint": "Earlier message number, if applicable", "required": false},
+      { "id": "message",           "wire_id": "23", "wire_label": "Message",   "type": "multiline", "rows": 10, "hint": "Keep message brief", "required": true },
+
+      { "type": "section",  "label": "Radio Operator Only" },
+	  
+      { "id": "relay_received",    "wire_id": "24", "wire_label": "Rcvd",      "type": "text", "required": false },
+      { "id": "relay_sent",        "wire_id": "25", "wire_label": "Sent",      "type": "text", "required": false },
+      { "id": "operator_name",     "wire_id": "26", "wire_label": "Name",      "type": "text", "default": "$USER_NAME", "required": true },
+      { "id": "operator_call_sign","wire_id": "27", "wire_label": "Call Sign", "type": "text", "default": "$CALL_SIGN", "required": true },
+      { "id": "operator_date",     "wire_id": "28", "wire_label": "Date",      "type": "date", "default": "$CURRENT_DATE", "hint": "mm/dd/yyyy", "required": true },
+      { "id": "operator_time",     "wire_id": "29", "wire_label": "Time",      "type": "time", "default": "$CURRENT_TIME", "hint": "hh:mm", "required": true}
+    ]
+  },
+
+  "transport": {
+    "show_labels": false,
+    "omit_empty": true
+  },
+
+  "pdf": {
+    "template": "SCCO.ICS213.pdf",
+    "fields": [
+
+{ "id": "origin_msg_num",      "page": 1, "x": 235, "y":  62, "width": 108, "height":  12, "font_size": 10 },
+{ "id": "dest_msg_num",        "page": 1, "x": 460, "y":  62, "width": 108, "height":  12, "font_size": 10 },
+{ "id": "date",                "page": 1, "x":  80, "y": 104, "width":  50, "height":  12, "font_size": 10 },
+{ "id": "time",                "page": 1, "x": 190, "y": 104, "width":  50, "height":  12, "font_size": 10 },
+
+{ "id": "handling_immediate", "source_id": "handling", "show_value": "IMMEDIATE", "text": "X", "page": 1, "x": 302, "y": 104, "width": 12, "height": 12, "font_size": 10 },
+{ "id": "handling_priority",  "source_id": "handling", "show_value": "PRIORITY",  "text": "X", "page": 1, "x": 405, "y": 104, "width": 12, "height": 12, "font_size": 10 },
+{ "id": "handling_routine",   "source_id": "handling", "show_value": "ROUTINE",   "text": "X", "page": 1, "x": 493, "y": 104, "width": 12, "height": 12, "font_size": 10 },
+
+{ "id": "to_ics_position",     "page": 1, "x": 144, "y": 126, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "to_location",         "page": 1, "x": 144, "y": 148, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "to_name",             "page": 1, "x": 144, "y": 170, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "to_contact_info",     "page": 1, "x": 144, "y": 193, "width": 144, "height":  12, "font_size": 10 },
+
+{ "id": "from_ics_position",   "page": 1, "x": 414, "y": 126, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "from_location",       "page": 1, "x": 414, "y": 148, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "from_name",           "page": 1, "x": 414, "y": 170, "width": 144, "height":  12, "font_size": 10 },
+{ "id": "from_contact_info",   "page": 1, "x": 414, "y": 193, "width": 144, "height":  12, "font_size": 10 },
+
+{ "id": "take_action_yes",    "source_id": "take_action", "show_value": "YES",    "text": "X", "page": 1, "x": 282, "y": 216, "width": 12, "height": 12, "font_size": 10 },
+{ "id": "take_action_no",     "source_id": "take_action", "show_value": "NO",     "text": "X", "page": 1, "x": 322, "y": 216, "width": 12, "height": 12, "font_size": 10 },
+
+{ "id": "reply_yes",          "source_id": "reply",    "show_value": "YES",       "text": "X", "page": 1, "x": 282, "y": 238, "width": 12, "height": 12, "font_size": 10 },
+{ "id": "reply_no",           "source_id": "reply",    "show_value": "NO",        "text": "X", "page": 1, "x": 322, "y": 238, "width": 12, "height": 12, "font_size": 10 },
+{ "id": "reply_by",           "page": 1, "x": 455, "y": 240, "width": 108, "height":  12, "font_size": 10 },
+
+{ "id": "subject",            "page": 1, "x": 125, "y": 279, "width": 108, "height":  12, "font_size": 10 },
+{ "id": "reference",          "page": 1, "x": 125, "y": 302, "width": 108, "height":  12, "font_size": 10 },
+{ "id": "message",            "page": 1, "x":  80, "y": 345, "width": 478, "height": 300, "font_size": 10 },
+
+{ "id": "relay_received",    "page": 1, "x": 125, "y": 692, "width": 478, "height": 300, "font_size": 10 },
+{ "id": "relay_sent",        "page": 1, "x": 360, "y": 692, "width": 478, "height": 300, "font_size": 10 },
+{ "id": "operator_name",     "page": 1, "x":  90, "y": 711, "width": 478, "height": 300, "font_size": 10 },
+{ "id": "operator_call_sign","page": 1, "x": 305, "y": 711, "width": 478, "height": 300, "font_size": 10 },
+{ "id": "operator_date",     "page": 1, "x": 405, "y": 711, "width": 478, "height": 300, "font_size": 10 },
+{ "id": "operator_time",     "page": 1, "x": 510, "y": 711, "width": 478, "height": 300, "font_size": 10 }
+
+    ]
+  }
+}

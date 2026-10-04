@@ -22,7 +22,6 @@
 #
 
 from pathlib import Path
-###rc2: from PyInstaller.utils.hooks import collect_submodules
 
 suite_root = Path(SPECPATH).resolve()
 
@@ -30,7 +29,6 @@ outpostx_root = suite_root / "outpostx"
 optermx_root = suite_root / "optermx"
 
 # Both OutpostX and OpTermX use PySide6.
-pyside6_hidden = collect_submodules("PySide6")
 
 # Single place to collect shared suite data files.  Keep these on the OutpostX
 # analysis only so they do not get duplicated in the collected app folder.
@@ -49,8 +47,7 @@ outpostx_analysis = Analysis(
     pathex=[str(outpostx_root)],
     binaries=[],
     datas=added_files,
-    ###rc2: hiddenimports=[*pyside6_hidden,],
-    hiddenimports=[],                           # rc2
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -64,8 +61,7 @@ optermx_analysis = Analysis(
     pathex=[str(optermx_root)],
     binaries=[],
     datas=[],
-    ###rc2: hiddenimports=pyside6_hidden,
-    hiddenimports=[],                           # rc2
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

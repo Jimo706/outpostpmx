@@ -4,7 +4,7 @@
 #   source venv/bin/activate
 #   cd ~/dev/outpostpmx/outpostx
 #   pyinstaller --onefile --clean --name pdf_coordinate_grid tools/pdf_coordinate_grid.py
-#   (Copy dist\pdf_coodinate_grid --> data\tools)
+#   (Copy dist\pdf_coodinate_grid --> dist\outpostpmx\tools)
 #
 #   cd ~/dev/outpostpmx
 #   python -m PyInstaller -y --clean outpostpmx_macos.spec
@@ -22,7 +22,7 @@
 #
 
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+###rc2: from PyInstaller.utils.hooks import collect_submodules
 
 suite_root = Path(SPECPATH).resolve()
 
@@ -49,9 +49,8 @@ outpostx_analysis = Analysis(
     pathex=[str(outpostx_root)],
     binaries=[],
     datas=added_files,
-    hiddenimports=[
-        *pyside6_hidden,
-    ],
+    ###rc2: hiddenimports=[*pyside6_hidden,],
+    hiddenimports=[],                           # rc2
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -65,7 +64,8 @@ optermx_analysis = Analysis(
     pathex=[str(optermx_root)],
     binaries=[],
     datas=[],
-    hiddenimports=pyside6_hidden,
+    ###rc2: hiddenimports=pyside6_hidden,
+    hiddenimports=[],                           # rc2
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
